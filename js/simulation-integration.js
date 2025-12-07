@@ -42,6 +42,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
+// Очистка localStorage и sessionStorage при закрытии вкладки
+window.addEventListener('pagehide', () => {
+    // Очищаем сохраненное состояние симуляции
+    if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('bb84_simulation_state');
+    }
+    
+    // Очищаем sessionStorage (хотя он и так очищается автоматически при закрытии вкладки)
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('sessionData');
+    }
+});
+
 // Обновление обработчиков панели управления
 function updatePanelHandlers() {
     // Переопределяем обработчики для работы с симулятором
