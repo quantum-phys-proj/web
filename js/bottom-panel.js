@@ -86,13 +86,6 @@ class BottomPanel {
                 defaultValue: 0
             },
             {
-                title: 'Потеряно кубитов',
-                key: 'lost_qubits',
-                format: 'number',
-                color: 'red',
-                defaultValue: 0
-            },
-            {
                 title: 'Атаковано Евой',
                 key: 'eve_attacked_count',
                 format: 'number',
@@ -121,8 +114,10 @@ class BottomPanel {
     }
     
     renderMetricCard(title, value, format = 'number', color = 'blue') {
+        // Для процентов: если value уже в процентах (0-100), используем как есть
+        // Если value в долях (0-1), умножаем на 100
         const formattedValue = format === 'percent' 
-            ? `${(value * 100).toFixed(2)}%` 
+            ? `${(value > 1 ? value : value * 100).toFixed(2)}%` 
             : this.formatMetricValue(value);
         
         const colorClasses = {

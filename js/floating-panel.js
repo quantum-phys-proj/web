@@ -542,6 +542,39 @@ function getCollapsedPanelDimensions() {
 function initPanel() {
     initElements();
     
+    // Загружаем конфиг из localStorage, если есть
+    // Но проверяем, что значения корректны, иначе используем значения по умолчанию
+    if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('bb84_simulation_state');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed.config && typeof parsed.config === 'object') {
+                    // Объединяем сохраненный конфиг с дефолтным, чтобы гарантировать наличие всех полей
+                    panelState.config = {
+                        ...panelState.config, // Дефолтные значения
+                        ...parsed.config     // Сохраненные значения (перезаписывают дефолтные)
+                    };
+                    
+                    // ВАЖНО: Проверяем, что max_eve_check_errors не равен некорректному значению
+                    // Если значение отсутствует или некорректно, используем значение по умолчанию (2)
+                    // Также сбрасываем значение, если оно равно 5 (старое некорректное значение)
+                    if (panelState.config.max_eve_check_errors === undefined || 
+                        panelState.config.max_eve_check_errors === null || 
+                        isNaN(Number(panelState.config.max_eve_check_errors)) ||
+                        panelState.config.max_eve_check_errors === 5) {
+                        console.log('Сбрасываем max_eve_check_errors на значение по умолчанию (2)');
+                        panelState.config.max_eve_check_errors = 2;
+                    }
+                    
+                    console.log('Config loaded from localStorage:', panelState.config);
+                }
+            } catch (e) {
+                console.error('Ошибка при загрузке конфига из localStorage:', e);
+            }
+        }
+    }
+    
     // Инициализация позиции (панель изначально свернута)
     // Устанавливаем начальное состояние перед расчетом позиции
     updatePanelVisibility();
@@ -645,6 +678,9 @@ function initPanel() {
 
 // Делаем функцию updateRunButton доступной глобально
 window.updateRunButton = updateRunButton;
+
+// Экспортируем panelState в window для доступа из других модулей
+window.panelState = panelState;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', initPanel);

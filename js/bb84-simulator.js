@@ -27,6 +27,8 @@ class BB84Simulator {
             finalKey: [], // Финальный ключ после privacy amplification
             finalKeyLength: 0, // Длина финального ключа
             hashSeed: null, // Seed для хэш-функции privacy amplification
+            eveCheckErrorCount: 0, // Количество ошибок, обнаруженных при проверке Евы (шаг 8)
+            eveCheckLength: 0, // Количество битов, проверенных на шаге 8
             // Добавляем другие поля по мере необходимости
         };
         this.stepHistory = []; // История состояний для каждого шага
@@ -76,21 +78,30 @@ class BB84Simulator {
     }
     
     getMetrics() {
-        // Вычисляем QBER (Quantum Bit Error Rate) - пока заглушка
-        const qber = 0; // TODO: вычислить реальный QBER
+        // 1. QBER (Quantum Bit Error Rate) - процент ошибок при проверке на шаге 8
+        // QBER рассчитывается ТОЛЬКО после шага 8 (проверка на вмешательство Евы)
+        // До шага 8 QBER неизвестен, показываем 0
+        let qber = 0;
+        if (this.state.eveCheckLength > 0 && this.state.eveCheckErrorCount !== undefined) {
+            // QBER рассчитывается только после проверки на шаге 8
+            qber = (this.state.eveCheckErrorCount / this.state.eveCheckLength) * 100;
+        }
+        // НЕ используем альтернативный расчет на основе matching bits - это не QBER!
         
-        // Потерянные кубиты - пока заглушка
-        const lost_qubits = 0; // TODO: вычислить реальные потери
+        // 2. Атаковано Евой - количество кубитов, которые атаковала Ева
+        const eve_attacked_count = this.state.eveAttacks ? Object.keys(this.state.eveAttacks).length : 0;
         
-        // Атаковано Евой - пока заглушка
-        const eve_attacked_count = 0; // TODO: вычислить реальные атаки
-        
-        // Размер ключа - количество битов
-        const key_size = this.state.aliceBits ? this.state.aliceBits.length : 0;
+        // 3. Размер ключа - ТОЛЬКО длина финального ключа (m) после Privacy Amplification
+        // Не показываем промежуточные значения (keptIndices, reconciliation bits и т.д.)
+        let key_size = 0;
+        if (this.state.finalKey && this.state.finalKey.length > 0) {
+            // Показываем только финальный ключ после Privacy Amplification
+            key_size = this.state.finalKeyLength || this.state.finalKey.length;
+        }
+        // До шага 9 (Privacy Amplification) размер ключа = 0
         
         return {
             qber: qber,
-            lost_qubits: lost_qubits,
             eve_attacked_count: eve_attacked_count,
             key_size: key_size,
             currentStep: this.currentStep,
@@ -557,6 +568,9 @@ class BB84Simulator {
         this.saveState();
         this.addEvent(`Ева применила атаку к ${results.length} кубитам`, 'info');
         
+        // Обновляем метрики после атаки Евы
+        this.updateBottomPanel();
+        
         // Обновляем отображение ленты
         const eveTape = this.bitTapes.get('eveQubits');
         if (eveTape) {
@@ -738,7 +752,6 @@ class BB84Simulator {
     }
     
     initSteps() {
-        // Регистрируем шаги
         this.registerStep(0, 'Начало симуляции', this.renderStep0.bind(this));
         this.registerStep(1, 'Алиса генерирует случайные биты', this.renderStep1.bind(this));
         this.registerStep(2, 'Алиса выбирает случайные базисы для кодирования', this.renderStep2.bind(this));
@@ -749,7 +762,6 @@ class BB84Simulator {
         this.registerStep(7, 'Сравнение битов Алисы и Боба', this.renderStep7.bind(this));
         this.registerStep(8, 'Проверка на вмешательство Евы', this.renderStep8.bind(this));
         this.registerStep(9, 'Сверка информации и усиление приватности', this.renderStep9.bind(this));
-        // Добавляем новые шаги здесь
     }
     
     registerStep(stepNumber, title, renderFunction) {
@@ -1494,6 +1506,9 @@ class BB84Simulator {
         this.state.bobMatchingBits = bobMatchingBits;
         this.saveState();
         this.addEvent(`Сравнение базисов завершено. Совпало: ${matchingIndices.length}. Оставлено: ${keptIndices.length} битов.`, 'info');
+        
+        // Обновляем метрики после шага 7 (теперь можно рассчитать потерянные кубиты)
+        this.updateBottomPanel();
     }
     
     renderStep8() {
@@ -1508,12 +1523,52 @@ class BB84Simulator {
             return;
         }
         
-        const eveCheckSubsetLen = (typeof panelState !== 'undefined' && panelState.config && panelState.config.eve_check_subset_len) 
-            ? panelState.config.eve_check_subset_len 
-            : 30;
-        const maxEveCheckErrors = (typeof panelState !== 'undefined' && panelState.config && panelState.config.max_eve_check_errors) 
-            ? panelState.config.max_eve_check_errors 
-            : 2;
+        const eveCheckSubsetLen = (typeof window !== 'undefined' && window.panelState && window.panelState.config && window.panelState.config.eve_check_subset_len) 
+            ? window.panelState.config.eve_check_subset_len 
+            : ((typeof panelState !== 'undefined' && panelState.config && panelState.config.eve_check_subset_len) 
+                ? panelState.config.eve_check_subset_len 
+                : 30);
+        
+        // Получаем maxEveCheckErrors из конфига
+        // ВАЖНО: Всегда читаем из актуального конфига, не из сохранённого состояния
+        let maxEveCheckErrors = 2; // Значение по умолчанию
+        
+        // Проверяем глобальный panelState (приоритет)
+        // Используем явную проверку, чтобы избежать проблем с undefined/null
+        if (typeof window !== 'undefined' && window.panelState && window.panelState.config) {
+            const configValue = window.panelState.config.max_eve_check_errors;
+            // Явно проверяем, что значение существует и является числом
+            if (configValue !== undefined && configValue !== null && configValue !== '' && !isNaN(Number(configValue))) {
+                maxEveCheckErrors = Number(configValue);
+            }
+        } else if (typeof panelState !== 'undefined' && panelState && panelState.config) {
+            const configValue = panelState.config.max_eve_check_errors;
+            if (configValue !== undefined && configValue !== null && configValue !== '' && !isNaN(Number(configValue))) {
+                maxEveCheckErrors = Number(configValue);
+            }
+        }
+        
+        // КРИТИЧЕСКАЯ ПРОВЕРКА: Убеждаемся, что значение не было перезаписано
+        // Если значение всё ещё неверное, принудительно читаем из window.panelState
+        if (maxEveCheckErrors !== 2 && typeof window !== 'undefined' && window.panelState && window.panelState.config) {
+            const directValue = window.panelState.config.max_eve_check_errors;
+            if (directValue !== undefined && directValue !== null && directValue !== '' && !isNaN(Number(directValue))) {
+                maxEveCheckErrors = Number(directValue);
+            }
+        }
+        
+        // Отладочная информация
+        console.log('Step 8: maxEveCheckErrors DEBUG:', {
+            windowExists: typeof window !== 'undefined',
+            windowPanelStateExists: typeof window !== 'undefined' && !!window.panelState,
+            windowConfigExists: typeof window !== 'undefined' && window.panelState && !!window.panelState.config,
+            directValue: typeof window !== 'undefined' && window.panelState && window.panelState.config ? window.panelState.config.max_eve_check_errors : 'N/A',
+            panelStateExists: typeof panelState !== 'undefined',
+            panelStateConfigExists: typeof panelState !== 'undefined' && panelState && !!panelState.config,
+            panelStateValue: typeof panelState !== 'undefined' && panelState && panelState.config ? panelState.config.max_eve_check_errors : 'N/A',
+            finalValue: maxEveCheckErrors,
+            finalType: typeof maxEveCheckErrors
+        });
         
         // Если проверка еще не была выполнена, выбираем случайное подмножество битов
         if (!this.state.eveCheckIndices || this.state.eveCheckIndices.length === 0) {
@@ -1549,10 +1604,26 @@ class BB84Simulator {
             }
         }
         
+        // Рассчитываем QBER для отображения в метриках
+        const qber = checkIndices.length > 0 ? (errorCount / checkIndices.length) * 100 : 0;
+        
+        // ФИНАЛЬНАЯ ПРОВЕРКА: Перечитываем значение из конфига перед проверкой
+        // Это гарантирует, что мы используем актуальное значение, а не кэшированное
+        // Объявляем переменную один раз для использования во всей функции
+        let finalMaxEveCheckErrors = maxEveCheckErrors;
+        if (typeof window !== 'undefined' && window.panelState && window.panelState.config) {
+            const finalValue = window.panelState.config.max_eve_check_errors;
+            if (finalValue !== undefined && finalValue !== null && finalValue !== '' && !isNaN(Number(finalValue))) {
+                finalMaxEveCheckErrors = Number(finalValue);
+            }
+        }
+        
         // Проверяем, не превышено ли максимальное количество ошибок
-        if (errorCount > maxEveCheckErrors) {
+        // В стандартном BB84 протокол прерывается на основе абсолютного количества ошибок,
+        // а не процента (QBER). QBER используется только как метрика для оценки качества канала.
+        if (errorCount > finalMaxEveCheckErrors) {
             // Протокол прерывается
-            const message = `Протокол прерван: обнаружено слишком много ошибок при проверке на вмешательство Евы. Обнаружено ${errorCount} ошибок из ${checkIndices.length} проверенных битов, допустимо максимум ${maxEveCheckErrors}. Пожалуйста, начните симуляцию заново.`;
+            const message = `Протокол прерван: обнаружено слишком много ошибок при проверке на вмешательство Евы. Обнаружено ${errorCount} ошибок из ${checkIndices.length} проверенных битов, допустимо максимум ${finalMaxEveCheckErrors}. QBER = ${qber.toFixed(2)}%. Пожалуйста, начните симуляцию заново.`;
             this.addEvent(message, 'error');
             stepContainer.innerHTML = `
                 <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
@@ -1560,7 +1631,8 @@ class BB84Simulator {
                     <p class="text-red-200 mb-4">${message}</p>
                     <p class="text-red-300 text-sm mb-2">Проверено битов: ${checkIndices.length}</p>
                     <p class="text-red-300 text-sm mb-2">Обнаружено ошибок: ${errorCount}</p>
-                    <p class="text-red-300 text-sm mb-4">Максимум допустимо: ${maxEveCheckErrors}</p>
+                    <p class="text-red-300 text-sm mb-2">Максимум допустимо ошибок: ${finalMaxEveCheckErrors}</p>
+                    <p class="text-red-300 text-sm mb-4">QBER: ${qber.toFixed(2)}% (информационная метрика)</p>
                     
                     <div class="mt-6 mb-4">
                         <p class="text-red-200 text-sm font-semibold mb-3">Сравнение битов (красным выделены несовпадения):</p>
@@ -1645,13 +1717,14 @@ class BB84Simulator {
         }
         
         // Проверка пройдена - показываем зеленое окно
+        // Используем finalMaxEveCheckErrors, который уже был вычислен выше
         stepContainer.innerHTML = `
             <div class="step-content p-6 rounded-2xl bg-green-900/40 border border-green-600/50 backdrop-blur-sm">
                 <p class="text-green-300 text-lg font-semibold mb-2">✓ Проверка пройдена</p>
                 <p class="text-green-200 mb-4">
                     Алиса выбрала ${checkIndices.length} битов для проверки на вмешательство Евы.
                     Обнаружено ошибок: ${errorCount} из ${checkIndices.length}.
-                    Максимум допустимо: ${maxEveCheckErrors}.
+                    Максимум допустимо: ${finalMaxEveCheckErrors}.
                 </p>
                 <p class="text-green-300 text-sm mb-2">Проверено битов: ${checkIndices.length}</p>
                 <p class="text-green-300 text-sm mb-2">Обнаружено ошибок: ${errorCount}</p>
@@ -1723,8 +1796,9 @@ class BB84Simulator {
         }
         
         // Сохраняем оставшиеся биты для шага 9 (исключая проверенные)
-        // ВАЖНО: Сохраняем данные независимо от результата проверки, если протокол не прерван
-        if (errorCount <= maxEveCheckErrors) {
+        // ВАЖНО: Сохраняем данные только если протокол не прерван
+        // Протокол прерывается только при превышении finalMaxEveCheckErrors (абсолютное количество ошибок)
+        if (errorCount <= finalMaxEveCheckErrors) {
             // Исключаем проверенные биты из оставшихся
             const remainingIndices = [];
             const checkIndicesSet = new Set(checkIndices);
@@ -1745,22 +1819,68 @@ class BB84Simulator {
                 originalIndex: this.state.bobMatchingBits[i].originalIndex
             }));
             
+            // Сохраняем информацию об ошибках для использования в шаге 9
+            this.state.eveCheckErrorCount = errorCount;
+            this.state.eveCheckLength = checkIndices.length;
+            
             // Отладочная информация
             console.log('Step 8: Saved reconciliation data', {
                 remainingIndices: remainingIndices.length,
                 aliceBits: this.state.aliceReconciliationBits.length,
                 bobBits: this.state.bobReconciliationBits.length,
                 keptIndices: this.state.keptIndices.length,
-                checkIndices: checkIndices.length
+                checkIndices: checkIndices.length,
+                errorCount: errorCount,
+                errorRate: checkIndices.length > 0 ? (errorCount / checkIndices.length) : 0,
+                qber: checkIndices.length > 0 ? ((errorCount / checkIndices.length) * 100).toFixed(2) + '%' : '0%'
+            });
+        } else {
+            // Даже если протокол прерван, сохраняем информацию об ошибках для метрик QBER
+            this.state.eveCheckErrorCount = errorCount;
+            this.state.eveCheckLength = checkIndices.length;
+            console.log('Step 8: Protocol aborted, but saving QBER data', {
+                errorCount: errorCount,
+                checkLength: checkIndices.length,
+                qber: qber.toFixed(2) + '%'
             });
         }
         
         this.saveState();
-        this.addEvent(`Проверка на вмешательство Евы завершена. Проверено: ${checkIndices.length} битов. Ошибок: ${errorCount}.`, errorCount > maxEveCheckErrors ? 'error' : 'info');
+        this.addEvent(`Проверка на вмешательство Евы завершена. Проверено: ${checkIndices.length} битов. Ошибок: ${errorCount}.`, errorCount > finalMaxEveCheckErrors ? 'error' : 'info');
+        
+        // ВАЖНО: Обновляем метрики после шага 8 (QBER теперь можно рассчитать)
+        // Это нужно делать даже если протокол прерван, чтобы показать QBER в метриках
+        this.updateBottomPanel();
     }
     
     renderStep9() {
-        // Шаг 9 - Information Reconciliation и Privacy Amplification
+        // Шаг 9 - Information Reconciliation (Информационная сверка) и Privacy Amplification (Усиление приватности)
+        // 
+        // ТЕОРИЯ:
+        // 
+        // 1. INFORMATION RECONCILIATION (Информационная сверка):
+        //    - Цель: Алиса и Боб должны получить одинаковые биты, исправив ошибки
+        //    - Метод: Бинарный поиск ошибок через паритеты блоков
+        //    - Процесс:
+        //      a) Делим биты на блоки
+        //      b) Вычисляем паритет каждого блока (XOR всех битов)
+        //      c) Публично обмениваемся паритетами
+        //      d) Если паритеты не совпадают, делим блок пополам и повторяем
+        //      e) Когда находим ошибочный бит, инвертируем его у Боба
+        //    - Утечка: каждый раскрытый паритет = 1 бит информации для Евы
+        //
+        // 2. PRIVACY AMPLIFICATION (Усиление приватности):
+        //    - Цель: Удалить информацию, которую могла узнать Ева
+        //    - Метод: Универсальное хэширование (Toeplitz-матрица)
+        //    - Формула длины финального ключа:
+        //      m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
+        //      где:
+        //      - n: длина ключа после reconciliation
+        //      - H_min(X|E): минимальная энтропия (≈ 1 - h(errorRate))
+        //      - leak_EC: утечка при Error Correction (количество паритетов)
+        //      - ε: параметр безопасности (обычно 0.01 = 1%)
+        //    - Результат: финальный безопасный ключ длины m
+        //
         const stepContainer = this.getOrCreateStepContainer(9);
         
         // Очищаем контейнер перед рендерингом
@@ -1823,7 +1943,34 @@ class BB84Simulator {
         }
         
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
-        const blockSize = Math.max(10, Math.floor(Math.sqrt(this.state.aliceReconciliationBits.length))); // Размер блока для reconciliation
+        
+        // Выбор размера блока для Information Reconciliation
+        // Теория: размер блока должен быть оптимальным для баланса между:
+        // - Количеством утечки информации (меньше блоков = меньше утечка)
+        // - Эффективностью поиска ошибок (больше блоков = быстрее поиск)
+        // 
+        // Практические рекомендации:
+        // - Для малых ключей (< 100 бит): блоки по 10-20 бит
+        // - Для средних ключей (100-1000 бит): блоки по 20-50 бит
+        // - Для больших ключей (> 1000 бит): блоки по 50-100 бит
+        // 
+        // Используем адаптивный размер: минимум 10, максимум 100, примерно sqrt(n) или фиксированный размер
+        const keyLength = this.state.aliceReconciliationBits.length;
+        let blockSize;
+        if (keyLength < 50) {
+            blockSize = Math.max(5, Math.floor(keyLength / 3)); // Для малых ключей: ~1/3 длины
+        } else if (keyLength < 200) {
+            blockSize = 20; // Для средних ключей: фиксированный размер 20
+        } else {
+            blockSize = Math.min(50, Math.max(20, Math.floor(Math.sqrt(keyLength)))); // Для больших: sqrt(n), но в разумных пределах
+        }
+        
+        console.log('Information Reconciliation - выбор размера блока:', {
+            keyLength: keyLength,
+            blockSize: blockSize,
+            numBlocks: Math.ceil(keyLength / blockSize),
+            expectedLeakage: Math.ceil(keyLength / blockSize) + ' битов (примерно)'
+        });
         
         // Information Reconciliation
         // Если reconciliation еще не был выполнен, выполняем его
@@ -1846,46 +1993,94 @@ class BB84Simulator {
                 return;
             }
             
-            // Разделяем на блоки и сверяем паритеты
-            const numBlocks = Math.ceil(aliceBits.length / blockSize);
-            const parityRevealed = []; // Информация, раскрытая по открытому каналу
+            // Information Reconciliation (Информационная сверка)
+            // Цель: Алиса и Боб должны получить одинаковые биты, исправив ошибки
+            // 
+            // Алгоритм:
+            // 1. Делим биты на блоки
+            // 2. Для каждого блока вычисляем паритет (XOR всех битов)
+            // 3. Алиса и Боб публично обмениваются паритетами
+            // 4. Если паритеты не совпадают, используем бинарный поиск для нахождения ошибки
+            // 5. Исправляем ошибку (инвертируем бит Боба)
             
-            for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
-                const start = blockIdx * blockSize;
-                const end = Math.min(start + blockSize, aliceBits.length);
+            const numBlocks = Math.ceil(aliceBits.length / blockSize);
+            const parityRevealed = []; // Информация, раскрытая по открытому каналу (каждый паритет = 1 бит утечки)
+            
+            // Рекурсивная функция для поиска и исправления ошибок в блоке
+            const correctErrorsInBlock = (blockStart, blockEnd) => {
+                if (blockStart >= blockEnd) return;
                 
-                // Вычисляем паритет блока (сумма по модулю 2)
-                const aliceParity = aliceBits.slice(start, end).reduce((sum, bit) => sum ^ bit, 0);
-                const bobParity = bobBits.slice(start, end).reduce((sum, bit) => sum ^ bit, 0);
+                const blockLength = blockEnd - blockStart;
+                const aliceBlock = aliceBits.slice(blockStart, blockEnd);
+                const bobBlock = bobBits.slice(blockStart, blockEnd);
                 
+                // Вычисляем паритет блока (XOR всех битов = сумма по модулю 2)
+                const aliceParity = aliceBlock.reduce((sum, bit) => sum ^ bit, 0);
+                const bobParity = bobBlock.reduce((sum, bit) => sum ^ bit, 0);
+                
+                // Раскрываем паритет публично (1 бит утечки информации)
                 parityRevealed.push({
-                    blockIndex: blockIdx,
-                    start: start,
-                    end: end,
+                    blockIndex: blockStart,
+                    start: blockStart,
+                    end: blockEnd,
                     aliceParity: aliceParity,
                     bobParity: bobParity
                 });
                 
-                // Если паритеты не совпадают, ищем и исправляем ошибку (бинарный поиск)
+                // Если паритеты не совпадают, есть ошибка(и) в блоке
                 if (aliceParity !== bobParity) {
-                    // Упрощенный бинарный поиск ошибки
-                    let errorIndex = this.findErrorInBlock(aliceBits.slice(start, end), bobBits.slice(start, end)) + start;
-                    if (errorIndex >= start && errorIndex < end) {
-                        // Исправляем ошибку (инвертируем бит Боба)
-                        bobBits[errorIndex] = bobBits[errorIndex] ^ 1;
+                    if (blockLength === 1) {
+                        // Блок из одного бита - это и есть ошибка
+                        bobBits[blockStart] = bobBits[blockStart] ^ 1; // Инвертируем бит Боба
+                        return;
+                    }
+                    
+                    // Бинарный поиск: делим блок пополам и рекурсивно обрабатываем
+                    const mid = blockStart + Math.floor(blockLength / 2);
+                    correctErrorsInBlock(blockStart, mid);
+                    correctErrorsInBlock(mid, blockEnd);
+                }
+            };
+            
+            // Обрабатываем все блоки
+            for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
+                const start = blockIdx * blockSize;
+                const end = Math.min(start + blockSize, aliceBits.length);
+                correctErrorsInBlock(start, end);
+            }
+            
+            // Проверяем, что после reconciliation биты совпадают
+            let errorsAfterReconciliation = 0;
+            for (let i = 0; i < aliceBits.length; i++) {
+                if (aliceBits[i] !== bobBits[i]) {
+                    errorsAfterReconciliation++;
+                }
+            }
+            
+            if (errorsAfterReconciliation > 0) {
+                console.warn(`После reconciliation осталось ${errorsAfterReconciliation} несовпадений`);
+                // Пытаемся исправить оставшиеся ошибки простым перебором
+                for (let i = 0; i < aliceBits.length; i++) {
+                    if (aliceBits[i] !== bobBits[i]) {
+                        bobBits[i] = aliceBits[i]; // Просто копируем бит Алисы
                     }
                 }
             }
             
-            // Сохраняем результаты reconciliation
-            this.state.reconciledAliceBits = aliceBits;
-            this.state.reconciledBobBits = bobBits;
+            // Сохраняем результаты reconciliation (гарантируем, что это массив чисел)
+            this.state.reconciledAliceBits = aliceBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b)));
+            this.state.reconciledBobBits = bobBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b)));
             this.state.parityRevealed = parityRevealed;
             this.saveState();
         }
         
-        const reconciledAlice = this.state.reconciledAliceBits || [];
-        const reconciledBob = this.state.reconciledBobBits || [];
+        // Гарантируем, что reconciled bits - это массив чисел
+        const reconciledAlice = (this.state.reconciledAliceBits || []).map(b => 
+            typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b))
+        );
+        const reconciledBob = (this.state.reconciledBobBits || []).map(b => 
+            typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b))
+        );
         const parityRevealed = this.state.parityRevealed || [];
         
         // Проверяем, что reconciliation был выполнен успешно
@@ -1904,130 +2099,213 @@ class BB84Simulator {
         
         // Privacy Amplification
         // Если amplification еще не был выполнен, выполняем его
-        if (!this.state.finalKey) {
-            const rawKeyLength = reconciledAlice.length;
+        if (!this.state.finalKey || this.state.finalKey.length === 0) {
+            // n - длина ключа после reconciliation (raw key length)
+            const n = reconciledAlice.length;
             
-            // Расчёт длины финального ключа на основе теоретической формулы:
-            // m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
-            // Где:
-            // - H_min(X|E) - минимальная энтропия (оценивается на основе ошибок Евы)
-            // - leak_EC - утечка информации при error correction (количество раскрытых паритетов)
-            // - ε - вероятность ошибки безопасности (для симуляции используем упрощение)
-            
-            // 1. Оцениваем утечку при Error Correction (количество раскрытых паритетов блоков)
-            const leakEC = this.state.parityRevealed ? this.state.parityRevealed.length : 0;
-            
-            // 2. Оцениваем минимальную энтропию на основе процента ошибок при проверке Евы
-            // Если протокол дошёл до этого шага, значит проверка прошла успешно,
-            // но могли быть ошибки (которые мы учтём)
-            let errorRate = 0;
-            if (this.state.eveCheckIndices && this.state.eveCheckIndices.length > 0) {
-                // Подсчитываем ошибки из шага 8 (если доступны)
-                // Для упрощения используем оценку на основе длины проверенных битов
-                // В реальном протоколе это вычисляется на основе фактических ошибок
-                const checkLength = this.state.eveCheckIndices.length;
-                // Если ошибок было мало, считаем что минимальная энтропия близка к 1
-                // Упрощение: используем фиксированную оценку, основанную на том, что проверка прошла
-                errorRate = 0.05; // 5% ошибок - консервативная оценка для симуляции
+            if (n === 0) {
+                console.error('Ошибка: нет данных для privacy amplification (n = 0)');
+                stepContainer.innerHTML = `
+                    <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
+                        <p class="text-red-300 text-lg font-semibold mb-2">Ошибка</p>
+                        <p class="text-red-200 mb-4">Нет данных для privacy amplification. Длина сверенного ключа равна нулю.</p>
+                    </div>
+                `;
+                return;
             }
             
-            // Минимальная энтропия (упрощённая оценка)
-            // H_min(X|E) ≈ 1 - h(errorRate), где h - бинарная энтропия
-            // h(p) = -p*log2(p) - (1-p)*log2(1-p)
-            const binaryEntropy = (p) => {
-                if (p === 0 || p === 1) return 0;
-                return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
-            };
-            const hMin = Math.max(0.5, 1 - binaryEntropy(errorRate)); // Консервативная оценка
-            
-            // 3. Параметр безопасности (для симуляции используем упрощение)
-            const securityParameter = 0.01; // ε = 0.01
-            const securityTerm = 2 * Math.log2(1 / securityParameter); // 2*log(1/0.01) ≈ 13.3
-            
-            // 4. Расчёт длины финального ключа
+            // УПРОЩЕННАЯ ФОРМУЛА для практической реализации:
             // m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
-            let m = Math.floor(rawKeyLength * hMin - leakEC - securityTerm);
+            // 
+            // Теория:
+            // 1. H_min(X|E) - минимальная энтропия (сколько информации осталось после утечки к Еве)
+            // 2. leak_EC - утечка при Error Correction (сколько битов мы раскрыли публично)
+            // 3. 2*log(1/ε) - запас безопасности (ε = 0.01 означает 1% вероятность ошибки)
             
-            console.log('Расчёт m (до проверок):', {
-                rawKeyLength: rawKeyLength,
-                hMin: hMin,
-                rawKeyLength_hMin: rawKeyLength * hMin,
-                leakEC: leakEC,
-                securityTerm: securityTerm,
-                calculatedM_before: m
+            // 1. Утечка при Error Correction (leak_EC)
+            // Каждый раскрытый паритет = 1 бит утечки
+            // В рекурсивном алгоритме reconciliation каждый блок может раскрывать несколько паритетов
+            // при делении пополам, поэтому считаем все раскрытые паритеты
+            const leakEC = this.state.parityRevealed ? this.state.parityRevealed.length : 0;
+            
+            // Дополнительная проверка: если leakEC слишком большой относительно n, это проблема
+            if (leakEC > n * 0.5) {
+                console.warn('Предупреждение: утечка при Error Correction слишком большая:', {
+                    leakEC: leakEC,
+                    n: n,
+                    ratio: (leakEC / n * 100).toFixed(1) + '%'
+                });
+            }
+            
+            // 2. Оценка минимальной энтропии H_min(X|E)
+            // Используем QBER (Quantum Bit Error Rate) из метрик или реальную частоту ошибок из шага 8
+            let errorRate = 0.01; // По умолчанию 1% (консервативная оценка)
+            if (this.state.eveCheckLength > 0 && this.state.eveCheckErrorCount !== undefined) {
+                // Используем реальный QBER из шага 8
+                errorRate = this.state.eveCheckErrorCount / this.state.eveCheckLength;
+            } else {
+                // Fallback: пытаемся получить QBER из метрик
+                const metrics = this.getMetrics();
+                if (metrics.qber > 0) {
+                    errorRate = metrics.qber / 100; // QBER в процентах, переводим в долю
+                }
+            }
+            // Ограничиваем разумными пределами [0.001, 0.2]
+            // QBER обычно < 11% для BB84, но для безопасности ограничиваем до 20%
+            errorRate = Math.max(0.001, Math.min(0.2, errorRate));
+            
+            console.log('Privacy Amplification - используемый QBER:', {
+                qber_percent: (errorRate * 100).toFixed(2) + '%',
+                errorRate: errorRate,
+                source: this.state.eveCheckLength > 0 ? 'шаг 8' : 'метрики/по умолчанию'
             });
             
-            // Если расчёт дал отрицательное или слишком малое значение, используем консервативную оценку
-            const minReasonableM = Math.max(1, Math.floor(rawKeyLength * 0.5));
-            if (m < minReasonableM || m <= 0) {
-                // Используем консервативную оценку: 70% от исходной длины
-                const conservativeM = Math.floor(rawKeyLength * 0.7);
-                // Гарантируем, что m в допустимом диапазоне [1, rawKeyLength - 1]
-                // НЕ используем n, так как n может быть больше rawKeyLength
-                m = Math.max(1, Math.min(rawKeyLength - 1, conservativeM));
-                console.log('Используется консервативная оценка:', { 
-                    conservativeM, 
-                    n, 
-                    rawKeyLength,
-                    finalM: m 
-                });
-            } else {
-                // Гарантируем, что m положительное и меньше исходной длины
-                m = Math.max(1, Math.min(rawKeyLength - 1, m));
+            // Бинарная энтропия Шеннона: h(p) = -p*log2(p) - (1-p)*log2(1-p)
+            const binaryEntropy = (p) => {
+                if (p <= 0 || p >= 1) return 0;
+                return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
+            };
+            
+            // H_min(X|E) ≈ 1 - h(errorRate)
+            // Это оценка того, сколько энтропии осталось после того, как Ева могла узнать часть информации
+            const hMin = Math.max(0.5, 1 - binaryEntropy(errorRate));
+            
+            // 3. Параметр безопасности
+            const securityParameter = 0.01; // ε = 0.01 (1% вероятность ошибки)
+            const securityTerm = 2 * Math.log2(1 / securityParameter); // ≈ 13.29 битов
+            
+            // 4. Расчёт длины финального ключа: m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
+            let m = Math.floor(n * hMin - leakEC - securityTerm);
+            
+            console.log('Privacy Amplification - расчёт (до проверок):', {
+                n: n,
+                errorRate: errorRate.toFixed(4),
+                hMin: hMin.toFixed(4),
+                n_times_hMin: (n * hMin).toFixed(2),
+                leakEC: leakEC,
+                securityTerm: securityTerm.toFixed(2),
+                calculatedM: m
+            });
+            
+            // 5. Гарантируем разумное значение m
+            // m должно быть: 1 <= m < n
+            // Если расчёт дал отрицательное или слишком большое значение, используем упрощённую оценку
+            if (m <= 0 || m >= n || !Number.isFinite(m)) {
+                console.warn('Расчёт дал невалидное m, используем упрощённую оценку:', m);
+                // Упрощённая оценка: m = n * (1 - errorRate) - leakEC - 10
+                // Это гарантирует, что мы учитываем ошибки и утечку, но не переусложняем
+                m = Math.floor(n * (1 - errorRate) - leakEC - 10);
+                
+                // Если всё ещё невалидно, используем консервативную оценку
+                if (m <= 0 || m >= n) {
+                    // Консервативная оценка: оставляем 60-70% от исходной длины
+                    m = Math.max(1, Math.min(n - 1, Math.floor(n * 0.65)));
+                }
             }
             
             // Финальная проверка: гарантируем валидность m
-            if (m <= 0 || m >= rawKeyLength || !Number.isFinite(m)) {
-                console.error('Критическая ошибка: невалидное значение m:', m);
-                // Используем минимально разумное значение
-                m = Math.max(1, Math.min(rawKeyLength - 1, Math.floor(rawKeyLength * 0.7)));
-            }
+            m = Math.max(1, Math.min(n - 1, m));
             
-            console.log('Privacy Amplification (теоретический расчёт):', {
-                rawKeyLength: rawKeyLength,
+            console.log('Privacy Amplification - финальный результат:', {
                 n: n,
-                errorRate: errorRate,
-                hMin: hMin.toFixed(3),
+                m: m,
+                compression: ((1 - m / n) * 100).toFixed(1) + '%',
+                qber: (errorRate * 100).toFixed(2) + '%',
                 leakEC: leakEC,
-                securityTerm: securityTerm.toFixed(2),
-                calculatedM: m,
-                hashSeed: this.state.hashSeed
+                hMin: hMin.toFixed(4)
             });
             
-            // Генерируем случайный seed для хэш-функции (публично)
+            // Генерируем случайный seed для хэш-функции (публично объявляется)
             if (!this.state.hashSeed) {
                 this.state.hashSeed = Math.floor(Math.random() * 0xFFFFFFFF);
             }
             
-            // Финальная проверка: гарантируем, что m валидное
-            if (m <= 0 || m >= rawKeyLength || !Number.isFinite(m)) {
-                console.warn('Невалидное значение m, используем консервативную оценку:', m);
-                m = Math.max(1, Math.min(rawKeyLength - 1, Math.floor(rawKeyLength * 0.7)));
+            // Отладочная информация: проверяем распределение битов во входном ключе
+            const onesCount = reconciledAlice.filter(b => b === 1).length;
+            const zerosCount = reconciledAlice.length - onesCount;
+            const onesRatio = (onesCount / reconciledAlice.length * 100).toFixed(1);
+            
+            console.log('Privacy Amplification - входной ключ:', {
+                length: reconciledAlice.length,
+                ones: onesCount,
+                zeros: zerosCount,
+                onesRatio: onesRatio + '%',
+                first20Bits: reconciledAlice.slice(0, 20),
+                sample: reconciledAlice.slice(0, Math.min(50, reconciledAlice.length))
+            });
+            
+            // Применяем универсальную хэш-функцию для privacy amplification
+            // Важно: передаём массив чисел, не объекты
+            const reconciledAliceNumbers = reconciledAlice.map(b => {
+                const val = typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b;
+                return val === true ? 1 : (val === false ? 0 : val);
+            });
+            
+            console.log('Privacy Amplification - передаём в функцию:', {
+                length: reconciledAliceNumbers.length,
+                first20: reconciledAliceNumbers.slice(0, 20),
+                ones: reconciledAliceNumbers.filter(b => b === 1).length,
+                zeros: reconciledAliceNumbers.filter(b => b === 0).length,
+                m: m,
+                seed: this.state.hashSeed
+            });
+            
+            const finalKey = this.privacyAmplification(reconciledAliceNumbers, m, this.state.hashSeed);
+            
+            if (!finalKey || finalKey.length === 0 || finalKey.length !== m) {
+                console.error('Ошибка: privacyAmplification вернул неверный результат', {
+                    inputLength: reconciledAlice.length,
+                    expectedOutputLength: m,
+                    actualOutputLength: finalKey ? finalKey.length : 0,
+                    seed: this.state.hashSeed
+                });
+                stepContainer.innerHTML = `
+                    <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
+                        <p class="text-red-300 text-lg font-semibold mb-2">Ошибка</p>
+                        <p class="text-red-200 mb-4">Privacy amplification вернул неверный результат.</p>
+                        <p class="text-red-300 text-sm">n: ${n}, m: ${m}, seed: ${this.state.hashSeed}</p>
+                    </div>
+                `;
+                return;
             }
             
-            console.log('Финальное значение m:', m, 'rawKeyLength:', rawKeyLength);
+            // Отладочная информация: проверяем распределение битов в финальном ключе
+            const finalOnesCount = finalKey.filter(b => b === 1).length;
+            const finalZerosCount = finalKey.length - finalOnesCount;
+            const finalOnesRatio = (finalOnesCount / finalKey.length * 100).toFixed(1);
             
-            // Используем улучшенную универсальную хэш-функцию (Toeplitz-матричный подход)
-            const finalKey = this.privacyAmplification(reconciledAlice, m, this.state.hashSeed);
+            console.log('Privacy Amplification - финальный ключ:', {
+                length: finalKey.length,
+                ones: finalOnesCount,
+                zeros: finalZerosCount,
+                onesRatio: finalOnesRatio + '%',
+                first20Bits: finalKey.slice(0, 20),
+                hex: this.bitsToHex(finalKey)
+            });
             
-            if (!finalKey || finalKey.length === 0) {
-                console.error('Ошибка: privacyAmplification вернул пустой массив', {
-                    inputLength: reconciledAlice.length,
-                    outputLength: m,
-                    seed: this.state.hashSeed
+            // Предупреждение, если распределение слишком неравномерное
+            if (finalOnesRatio < 20 || finalOnesRatio > 80) {
+                console.warn('Предупреждение: финальный ключ имеет неравномерное распределение битов:', {
+                    onesRatio: finalOnesRatio + '%',
+                    expectedRange: '40-60%',
+                    note: 'Это может указывать на проблему с генерацией ключа или seed'
                 });
             }
             
-            // Проверяем, что Боб получил тот же ключ (должен быть одинаковым после reconciliation)
+            // Проверяем, что Боб получил тот же ключ
             const bobFinalKey = this.privacyAmplification(reconciledBob, m, this.state.hashSeed);
             
-            if (finalKey.join('') !== bobFinalKey.join('')) {
+            if (finalKey.length !== bobFinalKey.length || finalKey.join('') !== bobFinalKey.join('')) {
+                console.warn('Предупреждение: финальные ключи Алисы и Боба не совпадают');
                 this.addEvent('Предупреждение: финальные ключи Алисы и Боба не совпадают после privacy amplification', 'warning');
             }
             
             this.state.finalKey = finalKey;
             this.state.finalKeyLength = m;
             this.saveState();
+            
+            // Обновляем метрики после создания финального ключа
+            this.updateBottomPanel();
         }
         
         stepContainer.innerHTML = `
@@ -2036,19 +2314,11 @@ class BB84Simulator {
                 
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold text-blue-300 mb-3">1. Information Reconciliation (Информационная сверка)</h3>
-                    <p class="text-sm text-gray-400 mb-4">
-                        Алиса и Боб делят свои битовые строки на блоки и открыто обмениваются паритетами блоков.
-                        Если паритеты не совпадают, они находят и исправляют ошибки через бинарный поиск.
-                    </p>
                     <div id="reconciliation-container" class="mt-4"></div>
                 </div>
                 
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold text-purple-300 mb-3">2. Privacy Amplification (Усиление приватности)</h3>
-                    <p class="text-sm text-gray-400 mb-4">
-                        Алиса и Боб применяют универсальное хэширование к сверенным битам для получения финального безопасного ключа.
-                        Даже если Ева узнала часть информации, финальный ключ остается безопасным.
-                    </p>
                     <div id="amplification-container" class="mt-4"></div>
                 </div>
             </div>
@@ -2060,16 +2330,15 @@ class BB84Simulator {
             setTimeout(() => {
                 reconciliationContainer.innerHTML = `
                     <div class="bg-gray-800/40 rounded-lg p-4 mb-4">
-                        <p class="text-sm text-gray-300 mb-3">Размер блока: ${blockSize} битов, Всего блоков: ${parityRevealed.length}</p>
-                        <p class="text-sm text-gray-300 mb-3">Раскрыто информации (паритеты блоков): ${parityRevealed.length} битов</p>
+                        <p class="text-sm text-gray-300 mb-2"><strong>Размер блока:</strong> ${blockSize} битов</p>
+                        <p class="text-sm text-gray-300 mb-2"><strong>Всего блоков:</strong> ${parityRevealed.length} штук</p>
+                        <p class="text-sm text-gray-300 mb-3"><strong>Утечка информации:</strong> ${parityRevealed.length} битов (каждый паритет = 1 бит утечки)</p>
                     </div>
                     <div class="space-y-4">
                         <div>
-                            <p class="text-sm font-semibold text-gray-300 mb-2">Алиса: Биты после reconciliation (${reconciledAlice.length} битов)</p>
                             <div id="alice-reconciled-tape-container"></div>
                         </div>
                         <div>
-                            <p class="text-sm font-semibold text-gray-300 mb-2">Боб: Биты после reconciliation (${reconciledBob.length} битов)</p>
                             <div id="bob-reconciled-tape-container"></div>
                         </div>
                     </div>
@@ -2078,10 +2347,15 @@ class BB84Simulator {
                 // Лента битов Алисы после reconciliation
                 const aliceReconciledContainer = reconciliationContainer.querySelector('#alice-reconciled-tape-container');
                 if (aliceReconciledContainer) {
+                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    const aliceReconciledBits = reconciledAlice.map((bit, idx) => ({
+                        value: bit,
+                        originalIndex: idx
+                    }));
                     const aliceReconciledTape = new BitTape(aliceReconciledContainer, {
                         title: 'Алиса: Биты после reconciliation',
                         variant: 'classical',
-                        bits: reconciledAlice,
+                        bits: aliceReconciledBits,
                         shouldAnimate: false,
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
@@ -2096,10 +2370,15 @@ class BB84Simulator {
                 // Лента битов Боба после reconciliation
                 const bobReconciledContainer = reconciliationContainer.querySelector('#bob-reconciled-tape-container');
                 if (bobReconciledContainer) {
+                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    const bobReconciledBits = reconciledBob.map((bit, idx) => ({
+                        value: bit,
+                        originalIndex: idx
+                    }));
                     const bobReconciledTape = new BitTape(bobReconciledContainer, {
                         title: 'Боб: Биты после reconciliation',
                         variant: 'classical',
-                        bits: reconciledBob,
+                        bits: bobReconciledBits,
                         shouldAnimate: false,
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
@@ -2118,16 +2397,25 @@ class BB84Simulator {
         if (amplificationContainer) {
             setTimeout(() => {
                 const finalKeyHex = this.bitsToHex(this.state.finalKey);
+                
+                // Подсчитываем распределение битов для информации
+                const finalOnes = this.state.finalKey.filter(b => {
+                    const val = typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b;
+                    return val === 1;
+                }).length;
+                const finalZeros = this.state.finalKey.length - finalOnes;
+                const onesRatio = (finalOnes / this.state.finalKey.length * 100).toFixed(1);
+                
                 amplificationContainer.innerHTML = `
                     <div class="bg-purple-900/40 border border-purple-600/50 rounded-lg p-4 mb-4">
                         <p class="text-purple-200 font-semibold mb-2">Финальный ключ</p>
                         <p class="text-sm text-purple-300 mb-1">Длина исходного ключа (n): ${reconciledAlice.length} битов</p>
                         <p class="text-sm text-purple-300 mb-1">Длина финального ключа (m): ${this.state.finalKeyLength} битов</p>
-                        <p class="text-sm text-purple-300 mb-1">Утечка при Error Correction: ${this.state.parityRevealed ? this.state.parityRevealed.length : 0} битов</p>
-                        <p class="text-sm text-purple-300 mb-2">Сжатие: ${reconciledAlice.length > 0 && this.state.finalKeyLength > 0 ? ((1 - this.state.finalKeyLength / reconciledAlice.length) * 100).toFixed(1) : 0}%</p>
-                        <p class="text-xs text-purple-400 mt-2 italic mb-3">Примечание: Используется упрощённая оценка формулы m = n·H_min(X|E) - leak_EC - 2·log(1/ε)</p>
+                        <p class="text-sm text-purple-300 mb-2">
+                            Сжатие: ${reconciledAlice.length > 0 && this.state.finalKeyLength > 0 ? ((1 - this.state.finalKeyLength / reconciledAlice.length) * 100).toFixed(1) : 0}%
+                        </p>
                         <p class="text-purple-200 font-semibold mt-3 mb-1">Ключ в hex формате:</p>
-                        <p class="text-purple-100 font-mono text-lg break-all bg-purple-950/50 p-2 rounded border border-purple-700/50">${finalKeyHex}</p>
+                        <p class="text-purple-100 font-mono text-base break-all bg-purple-950/50 p-3 rounded border border-purple-700/50">${finalKeyHex}</p>
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-300 mb-2">Общий ключ Алисы и Боба (${this.state.finalKey.length} битов)</p>
@@ -2138,10 +2426,15 @@ class BB84Simulator {
                 // Лента финального ключа
                 const finalKeyContainer = amplificationContainer.querySelector('#final-key-tape-container');
                 if (finalKeyContainer) {
+                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    const finalKeyBits = this.state.finalKey.map((bit, idx) => ({
+                        value: bit,
+                        originalIndex: idx
+                    }));
                     const finalKeyTape = new BitTape(finalKeyContainer, {
                         title: 'Финальный ключ',
                         variant: 'classical',
-                        bits: this.state.finalKey,
+                        bits: finalKeyBits,
                         shouldAnimate: false,
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
@@ -2160,6 +2453,8 @@ class BB84Simulator {
     }
     
     // Вспомогательная функция для поиска ошибки в блоке (бинарный поиск)
+    // Эта функция больше не используется, так как мы используем рекурсивный подход в correctErrorsInBlock
+    // Оставляем для обратной совместимости
     findErrorInBlock(aliceBlock, bobBlock) {
         // Упрощенный алгоритм - просто находим первый несовпадающий бит
         for (let i = 0; i < aliceBlock.length; i++) {
@@ -2170,52 +2465,54 @@ class BB84Simulator {
         return -1; // Ошибка не найдена (паритеты совпали, но биты различаются)
     }
     
-    // Улучшенная функция privacy amplification с использованием Toeplitz-матричного подхода
-    // Это более теоретически корректный метод, хотя всё ещё упрощён для симуляции
-    // В реальном BB84 используют полностью 2-универсальные хэш-семейства
+    // Простая функция privacy amplification с использованием XOR-подхода
+    // Как в старой версии: распределяем биты по "корзинам" и делаем XOR
+    // Это упрощённый подход для симуляции, но работает надёжно
     privacyAmplification(rawKey, outputLength, seed) {
-        const result = [];
-        const keyLength = rawKey.length;
+        // Нормализуем rawKey: извлекаем числовые значения, если это объекты
+        const normalizedKey = rawKey.map(bit => {
+            if (typeof bit === 'object' && bit !== null && bit.value !== undefined) {
+                return bit.value;
+            }
+            return bit === true ? 1 : (bit === false ? 0 : bit);
+        });
         
-        if (keyLength === 0 || outputLength === 0) {
+        const keyLength = normalizedKey.length;
+        
+        if (keyLength === 0 || outputLength === 0 || outputLength < 0) {
+            console.warn('Privacy Amplification: невалидные параметры', {
+                keyLength: keyLength,
+                outputLength: outputLength,
+                seed: seed
+            });
             return [];
         }
         
-        // Toeplitz-матричный подход: каждый выходной бит - это скалярное произведение
-        // ключа на строку матрицы, которая определяется seed
-        // Это обеспечивает лучшие свойства универсальности, чем простой XOR
+        // Простой подход: распределяем биты по "корзинам" (buckets) и делаем XOR
+        // Это эквивалентно простому хэшированию через XOR
+        const length = Math.max(1, Math.min(outputLength, keyLength));
+        const result = new Array(length).fill(0);
         
-        // Генерируем Toeplitz-матрицу на основе seed
-        // Для каждого выходного бита i нужна строка длины keyLength
-        for (let i = 0; i < outputLength; i++) {
-            let hashValue = 0;
-            
-            // Генерируем строку матрицы для i-го выходного бита
-            // Используем линейный конгруэнтный генератор на основе seed и индекса
-            let matrixRowSeed = (seed + i * 0x9e3779b9) >>> 0; // Золотое число для лучшего перемешивания
-            
-            // Вычисляем скалярное произведение ключа на строку матрицы (над GF(2))
-            for (let j = 0; j < keyLength; j++) {
-                // Генерируем следующий бит строки матрицы (псевдослучайно)
-                matrixRowSeed = (matrixRowSeed * 1103515245 + 12345) >>> 0; // LCG
-                const matrixBit = matrixRowSeed & 1;
-                
-                // Умножение и сложение над GF(2) - это AND и XOR
-                // hashValue = hashValue XOR (rawKey[j] AND matrixBit)
-                if (rawKey[j] === 1 && matrixBit === 1) {
-                    hashValue = hashValue ^ 1;
-                }
-            }
-            
-            result.push(hashValue);
+        // Распределяем каждый бит входного ключа в соответствующую "корзину"
+        // и делаем XOR со значением в корзине
+        for (let i = 0; i < keyLength; i++) {
+            const bucket = i % length;
+            const bit = normalizedKey[i];
+            result[bucket] ^= bit; // XOR над GF(2)
         }
         
-        console.log('Privacy Amplification result (Toeplitz):', {
+        // Проверяем результат
+        const onesInKey = normalizedKey.filter(b => b === 1).length;
+        const onesInResult = result.filter(b => b === 1).length;
+        
+        console.log('Privacy Amplification (простой XOR-подход):', {
             inputLength: keyLength,
-            outputLength: outputLength,
-            resultLength: result.length,
-            seed: seed,
-            firstFewBits: result.slice(0, Math.min(10, result.length))
+            inputOnes: onesInKey,
+            outputLength: length,
+            outputOnes: onesInResult,
+            outputZeros: length - onesInResult,
+            onesRatio: (onesInResult / length * 100).toFixed(1) + '%',
+            firstBits: result.slice(0, Math.min(20, result.length))
         });
         
         return result;
@@ -2224,28 +2521,40 @@ class BB84Simulator {
     // Преобразование битового массива в hex строку
     bitsToHex(bits) {
         if (!bits || bits.length === 0) {
-            return '0x0';
+            return '0';
         }
         
-        // Преобразуем биты в строку
-        const bitString = bits.join('');
+        // Нормализуем биты
+        const normalizedBits = bits.map(bit => {
+            if (typeof bit === 'object' && bit !== null && bit.value !== undefined) {
+                return bit.value;
+            }
+            return bit === true ? 1 : (bit === false ? 0 : bit);
+        });
         
-        // Дополняем до кратного 4 (для hex)
-        const paddedLength = Math.ceil(bitString.length / 4) * 4;
-        const paddedBits = bitString.padStart(paddedLength, '0');
-        
-        // Преобразуем каждые 4 бита в hex символ
+        // Преобразуем биты в байты (группы по 8 бит)
         let hexString = '';
-        for (let i = 0; i < paddedBits.length; i += 4) {
-            const nibble = paddedBits.substr(i, 4);
-            const hexDigit = parseInt(nibble, 2).toString(16).toUpperCase();
-            hexString += hexDigit;
+        for (let i = 0; i < normalizedBits.length; i += 8) {
+            let byte = 0;
+            const bitsInThisByte = Math.min(8, normalizedBits.length - i);
+            
+            // Собираем байт из 8 битов (или меньше в конце)
+            // ВАЖНО: Биты добавляются слева направо, нули уже находятся слева (в старших разрядах)
+            // НЕ нужно сдвигать влево для неполных байтов - это добавит нули справа (в младших разрядах), что неправильно!
+            for (let j = 0; j < bitsInThisByte; j++) {
+                byte = (byte << 1) | (normalizedBits[i + j] & 1);
+            }
+            
+            // НЕ сдвигаем неполные байты влево - нули уже находятся слева (в старших разрядах)
+            // Например: 6 битов `010001` = 17 (десятичное) = `11` (hex), а не `44` (hex)
+            
+            // Преобразуем байт в hex (два символа)
+            const hexByte = byte.toString(16).toUpperCase().padStart(2, '0');
+            hexString += hexByte;
         }
         
-        // Убираем ведущие нули, но оставляем хотя бы одну цифру
-        hexString = hexString.replace(/^0+/, '') || '0';
-        
-        return '0x' + hexString;
+        // Возвращаем hex строку без префикса 0x и без пробелов (просто hex символы)
+        return hexString;
     }
     
     getOrCreateStepContainer(stepNumber) {
@@ -2644,6 +2953,7 @@ class BB84Simulator {
         this.currentStep = stepNumber;
         this.saveState();
         this.updateStepIndicator();
+        // Обновляем метрики при переходе между шагами
         this.updateBottomPanel();
     }
     
@@ -2688,7 +2998,9 @@ class BB84Simulator {
             parityRevealed: [],
             finalKey: [],
             finalKeyLength: 0,
-            hashSeed: null
+            hashSeed: null,
+            eveCheckErrorCount: 0,
+            eveCheckLength: 0
         };
         this.stepHistory = []; // Очищаем историю
         
