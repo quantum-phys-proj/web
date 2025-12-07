@@ -158,8 +158,9 @@ class BB84Simulator {
         this.selectedElementStep = this.currentStep;
         
         // Собираем альтернативные индексы для кубитов (все индексы кубитов на текущем шаге)
+        // На шаге 3 панель выбора кубита не должна показываться
         let alternateIndices = [];
-        if (elementData.type === 'qubit' && this.state.aliceQubits) {
+        if (elementData.type === 'qubit' && this.state.aliceQubits && this.currentStep !== 3) {
             alternateIndices = this.state.aliceQubits.map((q, i) => i);
         }
         
