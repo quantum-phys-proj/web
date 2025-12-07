@@ -47,18 +47,6 @@ const configFields = [
         label: 'MaxEveCheckErrors',
         type: 'number',
         step: 1
-    },
-    {
-        key: 'noise_mode',
-        label: 'Тип шума',
-        type: 'select',
-        options: [
-            { value: 'uniform', label: 'Uniform' },
-            { value: 'gaussian', label: 'Gaussian' },
-            { value: 'phase_flip', label: 'Phase Flip' },
-            { value: 'bit_flip', label: 'Bit Flip' },
-            { value: 'depolarization', label: 'Depolarization' }
-        ]
     }
 ];
 
@@ -507,23 +495,30 @@ function handleGoHome() {
 
 // Обновление кнопки запуска
 function updateRunButton() {
-    // Обновление кнопки в свернутой панели
-    if (panelState.simulationState.isRunning) {
+    if (!elements.toggleRunBtn || !elements.playIcon || !elements.pauseIcon) {
+        return;
+    }
+    
+    const isRunning = (window.simulator && window.simulator.isRunning) || 
+                      panelState.simulationState.isRunning;
+    
+    if (isRunning) {
         elements.toggleRunBtn.classList.remove('stopped');
         elements.toggleRunBtn.classList.add('running');
-        elements.playIcon.style.display = 'none';
-        elements.pauseIcon.style.display = 'block';
+        if (elements.playIcon) elements.playIcon.style.display = 'none';
+        if (elements.pauseIcon) elements.pauseIcon.style.display = 'block';
         elements.toggleRunBtn.title = 'Остановить';
     } else {
         elements.toggleRunBtn.classList.remove('running');
         elements.toggleRunBtn.classList.add('stopped');
-        elements.playIcon.style.display = 'block';
-        elements.pauseIcon.style.display = 'none';
+        if (elements.playIcon) elements.playIcon.style.display = 'block';
+        if (elements.pauseIcon) elements.pauseIcon.style.display = 'none';
         elements.toggleRunBtn.title = 'Запустить';
     }
     
-    // Обновление кнопки в развернутой панели
-    updateControlButtonsLabels();
+    if (typeof updateControlButtonsLabels === 'function') {
+        updateControlButtonsLabels();
+    }
 }
 
 // Обновление отображения статуса подключения
@@ -647,6 +642,9 @@ function initPanel() {
         }, 100);
     });
 }
+
+// Делаем функцию updateRunButton доступной глобально
+window.updateRunButton = updateRunButton;
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', initPanel);

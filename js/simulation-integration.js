@@ -40,15 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
 // Обновление обработчиков панели управления
 function updatePanelHandlers() {
     // Переопределяем обработчики для работы с симулятором
-    // Переопределяем handleToggleRun
     window.handleToggleRun = function() {
         if (simulator) {
             simulator.toggleAutoPlay();
             panelState.simulationState.isRunning = simulator.isRunning;
-            updateRunButton();
-            // Обновляем текст кнопки в развернутом меню
+            if (typeof updateRunButton === 'function') {
+                updateRunButton();
+            }
             if (typeof updateControlButtonsLabels === 'function') {
                 updateControlButtonsLabels();
+            }
+        } else {
+            panelState.simulationState.isRunning = !panelState.simulationState.isRunning;
+            if (typeof updateRunButton === 'function') {
+                updateRunButton();
             }
         }
     };

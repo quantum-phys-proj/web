@@ -119,19 +119,24 @@ class BB84Simulator {
     }
     
     handleElementClick(elementData, event) {
-        // На шаге 6 не очищаем выбор кубита на шаге 5, только ленты шага 6
         if (this.currentStep === 6) {
-            // Очищаем только ленты шага 6
             const bobBasesTape = this.bitTapes.get('bobBases');
             const bobBitsTape = this.bitTapes.get('bobBits');
+            const aliceQubitsTape = this.bitTapes.get('aliceQubits');
+            const bobQubitsTape = this.bitTapes.get('bobQubits');
             if (bobBasesTape) {
                 bobBasesTape.clearSelection();
             }
             if (bobBitsTape) {
                 bobBitsTape.clearSelection();
             }
+            if (aliceQubitsTape) {
+                aliceQubitsTape.clearSelection();
+            }
+            if (bobQubitsTape) {
+                bobQubitsTape.clearSelection();
+            }
         } else {
-            // На других шагах очищаем все ленты
             this.bitTapes.forEach(tape => {
                 tape.clearSelection();
             });
@@ -152,29 +157,44 @@ class BB84Simulator {
             this.qubitDetails.setAlternateIndices(alternateIndices);
         }
         
-        // Подсвечиваем выбранный элемент в соответствующей ленте
-        // Находим ленту по tapeTitle или типу элемента
         let targetTape = null;
         if (elementData.type === 'qubit') {
             targetTape = this.bitTapes.get('aliceQubits');
         } else if (elementData.tapeTitle) {
-            // Ищем ленту по названию
             this.bitTapes.forEach((tape, key) => {
-                if (tape.options && tape.options.title === elementData.tapeTitle) {
+                if (tape && tape.options && tape.options.title === elementData.tapeTitle) {
                     targetTape = tape;
                 }
             });
         }
         
-        // Если нашли ленту, подсвечиваем элемент в ней (без вызова callback, чтобы избежать рекурсии)
-        if (targetTape && elementData.index !== undefined) {
+        if (targetTape && elementData.index !== undefined && targetTape.bits && elementData.index < targetTape.bits.length) {
             const bit = targetTape.bits[elementData.index];
             if (bit !== undefined) {
-                // Подсвечиваем элемент напрямую, без вызова selectElement (чтобы избежать рекурсии)
+                if (targetTape.selectedIndex !== null && targetTape.selectedIndex !== elementData.index) {
+                    const prevSquare = targetTape.findBitSquare(targetTape.selectedIndex);
+                    if (prevSquare) {
+                        prevSquare.classList.remove('bit-square-selected');
+                    }
+                }
+                
                 targetTape.selectedIndex = elementData.index;
-                const square = targetTape.container.querySelector(`[data-index="${elementData.index}"]`);
+                
+                const originalOnElementClick = targetTape.options.onElementClick;
+                targetTape.options.onElementClick = null;
+                targetTape.selectElement(elementData.index, bit, event);
+                targetTape.options.onElementClick = originalOnElementClick;
+                
+                const square = targetTape.findBitSquare(elementData.index);
                 if (square) {
                     square.classList.add('bit-square-selected');
+                } else {
+                    setTimeout(() => {
+                        const squareRetry = targetTape.findBitSquare(elementData.index);
+                        if (squareRetry) {
+                            squareRetry.classList.add('bit-square-selected');
+                        }
+                    }, 100);
                 }
             }
         }
@@ -1068,20 +1088,20 @@ class BB84Simulator {
         // Разрешаем выбор на шагах 5 и 6 (так как на шаге 6 также отображается шаг 5)
         if (this.currentStep !== 5 && this.currentStep !== 6) return;
         
-        // Очищаем выбор только в лентах шага 6, если мы на шаге 6
-        // Оставляем выбор кубита на шаге 5
         if (this.currentStep === 6) {
-            // Очищаем только ленты шага 6
             const bobBasesTape = this.bitTapes.get('bobBases');
             const bobBitsTape = this.bitTapes.get('bobBits');
+            const aliceQubitsTape = this.bitTapes.get('aliceQubits');
             if (bobBasesTape) {
                 bobBasesTape.clearSelection();
             }
             if (bobBitsTape) {
                 bobBitsTape.clearSelection();
             }
+            if (aliceQubitsTape) {
+                aliceQubitsTape.clearSelection();
+            }
         } else {
-            // На шаге 5 очищаем все ленты
             this.bitTapes.forEach(tape => {
                 tape.clearSelection();
             });
@@ -1109,18 +1129,18 @@ class BB84Simulator {
             }
         }
         
-        // Подсвечиваем элемент в ленте
         const bobTape = this.bitTapes.get('bobQubits');
         if (bobTape && elementData.index !== undefined) {
-            const bit = bobTape.bits[elementData.index];
-            if (bit !== undefined) {
-                bobTape.selectedIndex = elementData.index;
-                // Используем findBitSquare для более надежного поиска
-                const square = bobTape.findBitSquare ? bobTape.findBitSquare(elementData.index) : 
-                               bobTape.container.querySelector(`[data-index="${elementData.index}"]`);
-                if (square) {
-                    square.classList.add('bit-square-selected');
+            if (bobTape.selectedIndex !== null && bobTape.selectedIndex !== elementData.index) {
+                const prevSquare = bobTape.findBitSquare(bobTape.selectedIndex);
+                if (prevSquare) {
+                    prevSquare.classList.remove('bit-square-selected');
                 }
+            }
+            bobTape.selectedIndex = elementData.index;
+            const square = bobTape.findBitSquare(elementData.index);
+            if (square) {
+                square.classList.add('bit-square-selected');
             }
         }
         
@@ -1190,6 +1210,8 @@ class BB84Simulator {
                     this.stepBitTapes.set(6, []);
                 }
                 this.stepBitTapes.get(6).push(basesTape);
+                
+                this.restoreStep6Selection();
             }, 50);
         }
         
@@ -1211,7 +1233,59 @@ class BB84Simulator {
                     this.stepBitTapes.set(6, []);
                 }
                 this.stepBitTapes.get(6).push(bitsTape);
+                
+                this.restoreStep6Selection();
             }, 100);
+        }
+        
+        setTimeout(() => {
+            this.restoreStep6Selection();
+        }, 200);
+    }
+    
+    restoreStep6Selection() {
+        if (!this.selectedElement || this.selectedElementStep !== 6) {
+            return;
+        }
+        
+        if (this.selectedElement.tapeTitle === 'Боб: Базисы') {
+            const basesTape = this.bitTapes.get('bobBases');
+            if (basesTape && this.selectedElement.index !== undefined) {
+                const bit = basesTape.bits[this.selectedElement.index];
+                if (bit !== undefined) {
+                    basesTape.selectedIndex = this.selectedElement.index;
+                    const square = basesTape.findBitSquare(this.selectedElement.index);
+                    if (square) {
+                        square.classList.add('bit-square-selected');
+                    } else {
+                        setTimeout(() => {
+                            const squareRetry = basesTape.findBitSquare(this.selectedElement.index);
+                            if (squareRetry) {
+                                squareRetry.classList.add('bit-square-selected');
+                            }
+                        }, 100);
+                    }
+                }
+            }
+        } else if (this.selectedElement.tapeTitle === 'Боб: Измеренные биты') {
+            const bitsTape = this.bitTapes.get('bobBits');
+            if (bitsTape && this.selectedElement.index !== undefined) {
+                const bit = bitsTape.bits[this.selectedElement.index];
+                if (bit !== undefined) {
+                    bitsTape.selectedIndex = this.selectedElement.index;
+                    const square = bitsTape.findBitSquare(this.selectedElement.index);
+                    if (square) {
+                        square.classList.add('bit-square-selected');
+                    } else {
+                        setTimeout(() => {
+                            const squareRetry = bitsTape.findBitSquare(this.selectedElement.index);
+                            if (squareRetry) {
+                                squareRetry.classList.add('bit-square-selected');
+                            }
+                        }, 100);
+                    }
+                }
+            }
         }
     }
     
@@ -2372,8 +2446,14 @@ class BB84Simulator {
         // Проверяем, находится ли выбранный элемент в скрываемом шаге
         if (this.selectedElement && this.selectedElementStep !== null) {
             if (stepsToHide.includes(this.selectedElementStep)) {
-                // Очищаем выбор, если элемент находится в скрываемом шаге
-                this.clearSelection();
+                // Не очищаем выбор, если переходим на шаг, где элемент снова будет виден
+                const willBeVisible = (stepNumber === 6 && (this.selectedElementStep === 5 || this.selectedElementStep === 6)) ||
+                                     (stepNumber === 5 && this.selectedElementStep === 5) ||
+                                     (stepNumber === this.selectedElementStep);
+                
+                if (!willBeVisible) {
+                    this.clearSelection();
+                }
             }
         }
         
@@ -2409,14 +2489,12 @@ class BB84Simulator {
             }
         }
         
-        // Очищаем панель деталей при уходе с шага 6
-        if (this.currentStep === 6 && stepNumber !== 6) {
-            // Очищаем панель деталей
+        // Очищаем панель деталей при уходе с шага 6 на шаг, где шаг 6 скрывается
+        if (this.currentStep === 6 && stepNumber !== 6 && stepNumber !== 5) {
             if (this.qubitDetails) {
                 this.qubitDetails.setSelectedElement(null);
             }
             
-            // Очищаем выбор в лентах шага 6
             const bobBasesTape = this.bitTapes.get('bobBases');
             const bobBitsTape = this.bitTapes.get('bobBits');
             if (bobBasesTape) {
@@ -2424,6 +2502,10 @@ class BB84Simulator {
             }
             if (bobBitsTape) {
                 bobBitsTape.clearSelection();
+            }
+            
+            if (this.selectedElementStep === 6) {
+                this.clearSelection();
             }
         }
         
@@ -2485,7 +2567,8 @@ class BB84Simulator {
             if (this.steps[i]) {
                 
                 // Для шагов 7, 8, 9 всегда перерендериваем, чтобы показать актуальные данные
-                if (!this.renderedSteps.has(i) || i === 7 || i === 8 || i === 9) {
+                // Также перерендериваем шаг 6 при переходе на него, чтобы восстановить выбранные элементы
+                if (!this.renderedSteps.has(i) || i === 7 || i === 8 || i === 9 || (i === 6 && stepNumber === 6)) {
                     // Рендерим шаг
                     this.steps[i].render();
                     this.renderedSteps.add(i);
@@ -2628,6 +2711,13 @@ class BB84Simulator {
         if (this.isRunning) return;
         
         this.isRunning = true;
+        if (typeof panelState !== 'undefined') {
+            panelState.simulationState.isRunning = true;
+        }
+        if (typeof updateRunButton === 'function') {
+            updateRunButton();
+        }
+        
         this.autoPlayInterval = setInterval(() => {
             if (this.currentStep < this.steps.length - 1) {
                 this.nextStep();
@@ -2642,6 +2732,12 @@ class BB84Simulator {
         if (this.autoPlayInterval) {
             clearInterval(this.autoPlayInterval);
             this.autoPlayInterval = null;
+        }
+        if (typeof panelState !== 'undefined') {
+            panelState.simulationState.isRunning = false;
+        }
+        if (typeof updateRunButton === 'function') {
+            updateRunButton();
         }
     }
     
@@ -2788,21 +2884,11 @@ class BB84Simulator {
     
     // Проверка, можно ли применить изменение конфигурации
     canApplyConfigChange(key, oldValue, newValue) {
-        // Если изменение до шага 1, можно применить
         if (this.currentStep < 1) {
             return true;
         }
         
-        // Если изменение параметра n и мы на шаге 1 или позже, нужно проверить
-        if (key === 'n') {
-            // Если n изменился после генерации битов, нельзя применить без сброса
-            if (this.currentStep >= 1 && this.state.aliceBits.length > 0) {
-                return false;
-            }
-        }
-        
-        // Для других параметров можно применять на любом шаге
-        return true;
+        return false;
     }
     
     // Применение изменения конфигурации

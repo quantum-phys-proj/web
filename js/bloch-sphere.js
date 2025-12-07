@@ -192,11 +192,11 @@ class BlochSphere {
         const deltaX = mouseX - this.lastMouseX;
         const deltaY = mouseY - this.lastMouseY;
         
-        // Вращение: движение мыши вправо = вращение вправо
-        this.rotationY += deltaX * 0.01;
-        this.rotationX -= deltaY * 0.01;
+        const sensitivity = 0.015;
         
-        // Ограничиваем вертикальное вращение
+        this.rotationY += deltaX * sensitivity;
+        this.rotationX += deltaY * sensitivity;
+        
         this.rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.rotationX));
         
         this.lastMouseX = mouseX;
@@ -329,24 +329,25 @@ class BlochSphere {
     }
     
     project3D(x, y, z) {
-        // Применяем вращение вокруг Y (горизонтальное)
-        let x1 = x * Math.cos(this.rotationY) - z * Math.sin(this.rotationY);
+        let x1 = x;
         let y1 = y;
-        let z1 = x * Math.sin(this.rotationY) + z * Math.cos(this.rotationY);
+        let z1 = z;
         
-        // Применяем вращение вокруг X (вертикальное)
-        let x2 = x1;
-        let y2 = y1 * Math.cos(this.rotationX) - z1 * Math.sin(this.rotationX);
-        let z2 = y1 * Math.sin(this.rotationX) + z1 * Math.cos(this.rotationX);
+        let x2 = x1 * Math.cos(this.rotationY) - z1 * Math.sin(this.rotationY);
+        let y2 = y1;
+        let z2 = x1 * Math.sin(this.rotationY) + z1 * Math.cos(this.rotationY);
         
-        // Перспективная проекция
+        let x3 = x2;
+        let y3 = y2 * Math.cos(this.rotationX) - z2 * Math.sin(this.rotationX);
+        let z3 = y2 * Math.sin(this.rotationX) + z2 * Math.cos(this.rotationX);
+        
         const distance = 3;
-        const factor = distance / (distance + z2 * 0.5);
+        const factor = distance / (distance + z3 * 0.5);
         
         return { 
-            x: x2 * factor,
-            y: y2 * factor,
-            z: z2
+            x: x3 * factor,
+            y: y3 * factor,
+            z: z3
         };
     }
     
