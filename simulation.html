@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Симуляция с плавающей панелью управления">
+    <title>Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    <link rel="stylesheet" href="css/simulation.css">
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="simulation-container" class="w-full min-h-screen p-4 md:p-8 pb-80">
+        <div class="flex gap-6 max-w-[1600px] mx-auto">
+            <!-- Основной контент симуляции -->
+            <div id="simulation-content-wrapper" class="flex-1 min-w-0 flex flex-col">
+                <!-- Заголовок шага (фиксированный хедер) -->
+                <div id="step-header-container" class="step-header-container mb-4 p-4 rounded-xl bg-blue-900/30 border border-blue-500/30" style="display: none;"></div>
+                <div id="simulation-content" class="flex-1 overflow-y-auto pr-2">
+                    <!-- Контент симуляции будет добавляться динамически -->
+                </div>
+            </div>
+            
+            <!-- Правая панель деталей -->
+            <div id="details-sidebar" class="w-96 flex-shrink-0 space-y-4">
+                <!-- Панель деталей выбранного кубита -->
+                <div id="details-panel" class="details-panel space-y-4">
+                    <div id="details-placeholder" class="rounded-2xl border border-dashed border-gray-700 bg-gray-900/40 text-gray-400 p-6 text-center">
+                        Выберите кубит или бит, когда он появится в ленте.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Фиксированная нижняя панель с метриками и логом событий -->
+    <div id="bottom-panel-container" class="bottom-panel-container fixed bottom-0 left-0 right-0 z-50"></div>
+
+    <!-- Плавающая панель -->
+    <div id="floating-panel" class="floating-panel">
+        <div id="panel-container" class="panel-container pointer-events-auto">
+            <!-- Заголовок (виден только в развернутом состоянии) -->
+            <div id="panel-header" class="panel-header">
+                <div id="drag-handle" class="flex items-center justify-between cursor-move select-none">
+                    <p class="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Панель управления</p>
+                    <button id="collapse-btn" class="icon-btn" type="button" aria-label="Свернуть панель управления">
+                        <svg viewBox="0 0 24 24" class="h-5 w-5" stroke="currentColor" fill="none" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Поля конфигурации (видимы только в развернутом состоянии) -->
+            <div id="config-fields" class="config-fields-container grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <!-- Поля конфигурации будут добавлены через JS -->
+            </div>
+
+            <!-- Кнопки управления (в развернутом состоянии) -->
+            <div id="control-buttons" class="control-buttons-expanded">
+                <!-- Кнопки управления будут добавлены через JS -->
+            </div>
+
+            <!-- Статус подключения (виден только в развернутом состоянии) -->
+            <div id="connection-status" class="connection-status-container">
+                <!-- Статус подключения будет добавлен через JS -->
+            </div>
+
+            <!-- Компактные кнопки (видимы только в свернутом состоянии) -->
+            <div id="compact-buttons" class="compact-buttons-container">
+                <button id="prev-btn" class="icon-btn" type="button" title="Назад">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+                    </svg>
+                </button>
+
+                <button id="toggle-run-btn" class="icon-btn" type="button" title="Запустить">
+                    <svg id="play-icon" viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="currentColor" stroke-width="0">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <svg id="pause-icon" style="display: none;" viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6h-1v12h1V6zm5 0h-1v12h1V6z" />
+                    </svg>
+                </button>
+
+                <button id="next-btn" class="icon-btn" type="button" title="Далее">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
+                    </svg>
+                </button>
+
+                <button id="reset-btn" class="icon-btn" type="button" title="Сбросить">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.27 2A8.5 8.5 0 116.18 6.58" />
+                    </svg>
+                </button>
+
+                <button id="go-home-btn" class="icon-btn" type="button" title="На главную">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M4 10v10h5v-6h6v6h5V10" />
+                    </svg>
+                </button>
+
+                <button id="expand-btn" class="icon-btn" type="button" title="Развернуть панель управления">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="js/bloch-sphere.js"></script>
+    <script src="js/qubit-details.js"></script>
+    <script src="js/bit-tape.js"></script>
+    <script src="js/bottom-panel.js"></script>
+    <script src="js/bb84-simulator.js"></script>
+    <script src="js/floating-panel.js"></script>
+    <script src="js/simulation-integration.js"></script>
+</body>
+</html>
+

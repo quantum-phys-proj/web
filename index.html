@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Физика - Исследуйте фундаментальные законы вселенной">
+    <title>Физика</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="bg-gray-900 font-sans">
+    <div class="container mx-auto px-4 py-16 min-h-screen flex flex-col justify-center items-center">
+        <h1 id="main-title" class="text-6xl md:text-8xl font-bold mb-8 text-center text-white animate-fall-in"
+            style="animation-delay: 0.05s">
+            Физика
+        </h1>
+        <p id="main-description" class="text-xl md:text-2xl text-gray-300 mb-12 max-w-2xl text-center animate-fall-in"
+            style="animation-delay: 0.15s">
+            Исследуйте фундаментальные законы вселенной через интерактивные симуляции и эксперименты
+        </p>
+
+        <button id="start-button"
+            class="bg-white text-gray-900 text-2xl font-semibold py-4 px-12 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:bg-gray-100 hover:shadow-2xl border-2 border-white hover:border-gray-300 shadow-lg animate-fall-in"
+            style="animation-delay: 0.25s">
+            Начать изучение
+        </button>
+
+        <div id="session-options" class="hidden flex flex-col md:flex-row gap-6 animate-fall-in"
+            style="animation-delay: 0.1s">
+            <div class="bg-gray-800 p-8 rounded-2xl shadow-lg max-w-md">
+                <h3 class="text-2xl font-bold mb-4 text-white">Загрузить сохранение</h3>
+                <p class="text-gray-300 mb-4">Выберите JSON файл с сохраненной сессией для продолжения работы.</p>
+                <div class="space-y-4">
+                    <label for="session-file-input" class="block">
+                        <input id="session-file-input" type="file" accept=".json" class="hidden">
+                        <div
+                            class="w-full px-4 py-3 rounded-xl bg-gray-700 text-white border border-gray-600 hover:border-blue-500 focus-within:border-blue-500 transition-colors cursor-pointer">
+                            <span id="file-name-display" class="text-gray-400">Выберите JSON файл...</span>
+                        </div>
+                    </label>
+                    <button id="load-session-btn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-xl transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        Загрузить сохранение
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-8 rounded-2xl shadow-lg max-w-md">
+                <h3 class="text-2xl font-bold mb-4 text-white">Новая сессия</h3>
+                <p class="text-gray-300 mb-4">Создайте новую сессию для начала работы.</p>
+                <button id="create-session-btn"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-xl transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Создать новую сессию
+                </button>
+            </div>
+        </div>
+
+        <button id="back-button" class="hidden mt-8 text-gray-400 hover:text-white transition-colors animate-fall-in"
+            style="animation-delay: 0.2s">
+            ← Назад
+        </button>
+    </div>
+
+    <script src="js/index.js"></script>
+</body>
+
+</html>
