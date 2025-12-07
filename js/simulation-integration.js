@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Обновляем обработчики панели управления
             updatePanelHandlers();
             
+            // Обновляем статус подключения после создания симулятора
+            if (typeof updateConnectionStatusDisplay === 'function') {
+                updateConnectionStatusDisplay();
+            }
+            
             // Добавляем кнопку экспорта в меню
             addExportButton();
         }
@@ -98,11 +103,37 @@ function updatePanelHandlers() {
         
         const text = document.createElement('span');
         if (simulator) {
+            // Если симулятор создан, показываем текущий шаг
             text.textContent = `Шаг: ${simulator.currentStep} / ${simulator.steps.length - 1}`;
         } else {
-            text.textContent = panelState.wsConnected 
-                ? `Подключено | Сессия: ${panelState.sessionId || 'N/A'} | Шаг: ${panelState.simulationState.currentStep}`
-                : 'Не подключено';
+            // Если симулятор еще не создан, проверяем сохраненное состояние
+            let currentStep = 0;
+            const totalSteps = 9; // Всего шагов 0-9
+            
+            // Проверяем sessionStorage (для загруженной сессии из JSON)
+            const savedSessionData = sessionStorage.getItem('sessionData');
+            if (savedSessionData) {
+                try {
+                    const data = JSON.parse(savedSessionData);
+                    currentStep = data.currentStep || 0;
+                } catch (e) {
+                    // Игнорируем ошибки парсинга
+                }
+            } else {
+                // Проверяем localStorage (для сохраненной сессии)
+                const savedState = localStorage.getItem('bb84_simulation_state');
+                if (savedState) {
+                    try {
+                        const parsed = JSON.parse(savedState);
+                        currentStep = parsed.currentStep || 0;
+                    } catch (e) {
+                        // Игнорируем ошибки парсинга
+                    }
+                }
+            }
+            
+            // Показываем шаг вместо "Не подключено"
+            text.textContent = `Шаг: ${currentStep} / ${totalSteps}`;
         }
         
         statusDiv.appendChild(indicator);

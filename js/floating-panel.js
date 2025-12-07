@@ -490,6 +490,17 @@ function handleReset() {
 }
 
 function handleGoHome() {
+    // Очищаем сохраненное состояние симуляции из localStorage
+    // чтобы при создании новой сессии не показывалось старое состояние
+    if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('bb84_simulation_state');
+    }
+    
+    // Также очищаем sessionStorage на случай, если там есть данные
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('sessionData');
+    }
+    
     window.location.href = 'index.html';
 }
 
@@ -610,6 +621,14 @@ function initPanel() {
     // Создание статуса подключения
     const connectionStatus = updateConnectionStatus();
     elements.connectionStatusContainer.appendChild(connectionStatus);
+    
+    // Обновляем статус после небольшой задержки, чтобы он обновился после создания симулятора
+    // Это нужно для отображения правильного шага при загрузке страницы
+    setTimeout(() => {
+        if (typeof updateConnectionStatusDisplay === 'function') {
+            updateConnectionStatusDisplay();
+        }
+    }, 250);
     
     // Установка начального состояния (уже установлено выше)
     updateRunButton();
