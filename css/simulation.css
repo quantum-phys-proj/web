@@ -541,6 +541,23 @@
   text-align: center;
 }
 
+/* Уведомление о прерывании протокола */
+.protocol-aborted-notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  background: rgba(220, 38, 38, 0.95);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  animation: slideDown 0.3s ease-out;
+  max-width: 90%;
+  text-align: center;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;

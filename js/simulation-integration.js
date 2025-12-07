@@ -250,3 +250,41 @@ function showConfigChangeNotification(key, newValue, oldValue) {
 // Делаем функцию доступной глобально
 window.showConfigChangeNotification = showConfigChangeNotification;
 
+// Функция показа уведомления о прерывании протокола
+function showProtocolAbortedNotification(message) {
+    // Удаляем предыдущее уведомление, если есть
+    const existingNotification = document.querySelector('.protocol-aborted-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = 'protocol-aborted-notification';
+    
+    notification.innerHTML = `
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+                <p class="font-semibold">Алгоритм прерван</p>
+                <p class="text-sm mt-1 opacity-90">${message}</p>
+                <p class="text-sm mt-2 font-semibold">Пожалуйста, начните симуляцию заново.</p>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Автоматически скрываем через 10 секунд (дольше, чем обычное уведомление)
+    setTimeout(() => {
+        notification.style.animation = 'slideDown 0.3s ease-out reverse';
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }, 10000);
+}
+
+// Делаем функцию доступной глобально
+window.showProtocolAbortedNotification = showProtocolAbortedNotification;
+

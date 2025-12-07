@@ -29,6 +29,7 @@ class BB84Simulator {
             hashSeed: null, // Seed для хэш-функции privacy amplification
             eveCheckErrorCount: 0, // Количество ошибок, обнаруженных при проверке Евы (шаг 8)
             eveCheckLength: 0, // Количество битов, проверенных на шаге 8
+            isProtocolAborted: false, // Флаг прерывания протокола
             // Добавляем другие поля по мере необходимости
         };
         this.stepHistory = []; // История состояний для каждого шага
@@ -1333,8 +1334,21 @@ class BB84Simulator {
         // Проверяем, что достаточно совпадений (минимум 2n)
         if (matchingIndices.length < minRequiredBits) {
             // Протокол прерывается
-            const message = `Протокол прерван: недостаточно совпадающих базисов. Получено ${matchingIndices.length} совпадений, требуется минимум ${minRequiredBits}. Пожалуйста, начните симуляцию заново.`;
-            this.addEvent(message, 'error');
+            this.state.isProtocolAborted = true;
+            
+            // Останавливаем автоплей, если он запущен
+            if (this.isRunning) {
+                this.stopAutoPlay();
+            }
+            
+            const message = `Недостаточно совпадающих базисов. Получено ${matchingIndices.length} совпадений, требуется минимум ${minRequiredBits}.`;
+            this.addEvent(`Протокол прерван: ${message}`, 'error');
+            
+            // Показываем уведомление о прерывании протокола
+            if (typeof window.showProtocolAbortedNotification === 'function') {
+                window.showProtocolAbortedNotification(message);
+            }
+            
             stepContainer.innerHTML = `
                 <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
                     <p class="text-red-300 text-lg font-semibold mb-2">Протокол прерван</p>
@@ -1349,6 +1363,8 @@ class BB84Simulator {
                     </button>
                 </div>
             `;
+            
+            this.saveState();
             return;
         }
         
@@ -1624,8 +1640,20 @@ class BB84Simulator {
         // а не процента (QBER). QBER используется только как метрика для оценки качества канала.
         if (errorCount > finalMaxEveCheckErrors) {
             // Протокол прерывается
-            const message = `Протокол прерван: обнаружено слишком много ошибок при проверке на вмешательство Евы. Обнаружено ${errorCount} ошибок из ${checkIndices.length} проверенных битов, допустимо максимум ${finalMaxEveCheckErrors}. QBER = ${qber.toFixed(2)}%. Пожалуйста, начните симуляцию заново.`;
-            this.addEvent(message, 'error');
+            this.state.isProtocolAborted = true;
+            
+            // Останавливаем автоплей, если он запущен
+            if (this.isRunning) {
+                this.stopAutoPlay();
+            }
+            
+            const message = `Обнаружено слишком много ошибок при проверке на вмешательство Евы. Обнаружено ${errorCount} ошибок из ${checkIndices.length} проверенных битов, допустимо максимум ${finalMaxEveCheckErrors}. QBER = ${qber.toFixed(2)}%.`;
+            this.addEvent(`Протокол прерван: ${message}`, 'error');
+            
+            // Показываем уведомление о прерывании протокола
+            if (typeof window.showProtocolAbortedNotification === 'function') {
+                window.showProtocolAbortedNotification(message);
+            }
             stepContainer.innerHTML = `
                 <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
                     <p class="text-red-300 text-lg font-semibold mb-2">Протокол прерван</p>
@@ -2966,6 +2994,12 @@ class BB84Simulator {
     }
     
     nextStep() {
+        // Блокируем переход к следующему шагу, если протокол прерван
+        if (this.state.isProtocolAborted) {
+            this.addEvent('Невозможно перейти к следующему шагу: протокол прерван. Пожалуйста, начните симуляцию заново.', 'error');
+            return;
+        }
+        
         if (this.currentStep < this.steps.length - 1) {
             this.goToStep(this.currentStep + 1);
         }
@@ -3001,13 +3035,20 @@ class BB84Simulator {
             finalKeyLength: 0,
             hashSeed: null,
             eveCheckErrorCount: 0,
-            eveCheckLength: 0
+            eveCheckLength: 0,
+            isProtocolAborted: false
         };
         this.stepHistory = []; // Очищаем историю
         
         // Очищаем множественный выбор
         this.selectedIndices = [];
         this.lastSelectedIndex = null;
+        
+        // Удаляем уведомление о прерывании протокола, если оно есть
+        const notification = document.querySelector('.protocol-aborted-notification');
+        if (notification) {
+            notification.remove();
+        }
         
         // Очищаем все контейнеры
         this.stepContainers.forEach(container => container.remove());
@@ -3022,6 +3063,12 @@ class BB84Simulator {
     
     startAutoPlay() {
         if (this.isRunning) return;
+        
+        // Блокируем автоплей, если протокол прерван
+        if (this.state.isProtocolAborted) {
+            this.addEvent('Невозможно запустить автоплей: протокол прерван. Пожалуйста, начните симуляцию заново.', 'error');
+            return;
+        }
         
         this.isRunning = true;
         if (typeof panelState !== 'undefined') {
@@ -3128,6 +3175,23 @@ class BB84Simulator {
                 if (parsed.config && typeof panelState !== 'undefined' && panelState.config) {
                     Object.assign(panelState.config, parsed.config);
                 }
+                
+                // Проверяем, был ли протокол прерван, и показываем уведомление
+                if (this.state.isProtocolAborted) {
+                    let message = '';
+                    if (this.currentStep === 7) {
+                        message = `Протокол был прерван на шаге 7. Недостаточно совпадающих базисов. Пожалуйста, начните симуляцию заново.`;
+                    } else if (this.currentStep === 8) {
+                        message = `Протокол был прерван на шаге 8. Обнаружено слишком много ошибок при проверке на вмешательство Евы. Пожалуйста, начните симуляцию заново.`;
+                    } else {
+                        message = `Протокол был прерван. Пожалуйста, начните симуляцию заново.`;
+                    }
+                    setTimeout(() => {
+                        if (typeof window.showProtocolAbortedNotification === 'function') {
+                            window.showProtocolAbortedNotification(message);
+                        }
+                    }, 500);
+                }
             } catch (e) {
                 console.error('Ошибка при загрузке состояния:', e);
             }
@@ -3184,6 +3248,23 @@ class BB84Simulator {
             
             // Обновляем заголовок перед переходом
             this.updateStepHeader(this.currentStep);
+            
+            // Проверяем, был ли протокол прерван, и показываем уведомление
+            if (this.state.isProtocolAborted) {
+                let message = '';
+                if (this.currentStep === 7) {
+                    message = `Протокол был прерван на шаге 7. Недостаточно совпадающих базисов. Пожалуйста, начните симуляцию заново.`;
+                } else if (this.currentStep === 8) {
+                    message = `Протокол был прерван на шаге 8. Обнаружено слишком много ошибок при проверке на вмешательство Евы. Пожалуйста, начните симуляцию заново.`;
+                } else {
+                    message = `Протокол был прерван. Пожалуйста, начните симуляцию заново.`;
+                }
+                setTimeout(() => {
+                    if (typeof window.showProtocolAbortedNotification === 'function') {
+                        window.showProtocolAbortedNotification(message);
+                    }
+                }, 500);
+            }
             
             this.goToStep(this.currentStep);
             this.saveState();
