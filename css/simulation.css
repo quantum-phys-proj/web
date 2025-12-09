@@ -6,7 +6,6 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 0.75rem;
-  /* Плавная анимация позиции будет добавляться через JS при необходимости */
 }
 
 .panel-container {
@@ -57,7 +56,6 @@
   max-height: 100px;
 }
 
-/* Поля конфигурации */
 .config-fields-container {
   transition: opacity 0.3s ease, max-height 0.4s ease, margin 0.4s ease;
   overflow: hidden;
@@ -129,7 +127,6 @@
   width: auto;
 }
 
-/* Компактные кнопки */
 .compact-buttons-container {
   display: flex;
   align-items: center;
@@ -188,7 +185,6 @@
   background: rgba(16, 185, 129, 0.9);
 }
 
-/* Плавные переходы */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -206,7 +202,6 @@
   transform: translateY(0) scale(1);
 }
 
-/* Скрытие панелей */
 .floating-panel .hidden-panel {
   display: none;
 }
@@ -215,13 +210,11 @@
   display: block;
 }
 
-/* Плавные переходы для панелей */
 .floating-panel>div {
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity, transform;
 }
 
-/* Стили для полей конфигурации */
 .config-field {
   display: flex;
   flex-direction: column;
@@ -321,12 +314,9 @@
   box-shadow: 0 0 4px #ef4444;
 }
 
-/* Стили для битной ленты */
 .bit-tape {
   margin-bottom: 1.5rem;
 }
-
-/* .bit-square - анимация применяется только через inline style при первом рендере */
 
 .bit-square-highlight {
   box-shadow: 0 0 12px rgba(248, 113, 113, 0.6), inset 0 0 8px rgba(248, 113, 113, 0.4);
@@ -388,7 +378,6 @@
 }
 
 .native-scroll-inner {
-  /* Добавляем отступ снизу для возможности скролла когда лента заходит на футер */
   padding-bottom: 12rem;
 }
 
@@ -398,7 +387,6 @@
   flex: 0 0 48px;
 }
 
-/* Стили для Swiper в битной ленте */
 .bit-swiper {
   padding: 4px 0 14px 0;
   cursor: grab;
@@ -445,34 +433,28 @@
   cursor: grabbing;
 }
 
-/* Убираем лишнее пространство после последнего слайда */
 .bit-swiper .swiper-wrapper::after {
   display: none;
 }
 
-/* Плейсхолдер для виртуализации */
 .bit-square-placeholder {
   flex-shrink: 0;
   background: transparent;
 }
 
-/* Контейнер для основного контента с вертикальным скроллом */
 #simulation-content-wrapper {
   max-height: calc(100vh - 2rem - 14rem);
-  /* 2rem - padding сверху/снизу, 14rem - примерная высота футера с отступом */
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
-/* Заголовок шага - фиксированный хедер */
 .step-header-container {
   flex-shrink: 0;
   z-index: 10;
   position: relative;
 }
 
-/* Скролл-контейнер для контента */
 #simulation-content {
   flex: 1;
   overflow-y: auto;
@@ -495,13 +477,10 @@
   background: rgba(156, 163, 175, 0.7);
 }
 
-/* Стили для шагов симуляции */
 .step-container {
   margin-bottom: 1.5rem;
   min-height: 100px;
-  /* Предотвращаем сжатие контейнеров */
   flex-shrink: 0;
-  /* Предотвращаем уменьшение размера */
 }
 
 .step-header {
@@ -524,7 +503,6 @@
   }
 }
 
-/* Уведомление об изменении конфигурации */
 .config-notification {
   position: fixed;
   top: 20px;
@@ -541,7 +519,6 @@
   text-align: center;
 }
 
-/* Уведомление о прерывании протокола */
 .protocol-aborted-notification {
   position: fixed;
   top: 20px;
@@ -570,7 +547,6 @@
   }
 }
 
-/* Стили для панели деталей */
 .qubit-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -656,7 +632,6 @@
   margin-bottom: 0.35rem;
 }
 
-/* Стили для сферы Блоха */
 .bloch-label {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -700,7 +675,6 @@
 
 .bottom-panel-container>* {
   pointer-events: auto;
-  /* Футер занимает только ширину основного контента, не заходя на правую панель (w-96 = 384px + gap 24px) */
   max-width: calc(1600px - 408px);
   margin: 0;
   margin-left: calc((100vw - 1600px) / 2);
@@ -761,7 +735,6 @@
   padding: 1rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   min-width: 0;
-  /* Позволяет тексту обрезаться правильно */
   overflow: hidden;
 }
 
@@ -795,7 +768,6 @@
 }
 
 .log-container-scrollable {
-  /* Фиксированная высота для 2 сообщений, но с возможностью скролла */
   max-height: calc(2 * (2.5rem + 1px));
   min-height: calc(2 * (2.5rem + 1px));
   overflow-y: auto;
@@ -817,7 +789,6 @@
 }
 
 .log-container-fixed {
-  /* Фиксированная высота для 2 сообщений без скролла */
   max-height: calc(2 * (2.5rem + 1px));
   overflow: hidden;
   min-height: calc(2 * (2.5rem + 1px));

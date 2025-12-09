@@ -1,10 +1,10 @@
-// Ждем загрузки DOM
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Получаем элементы
+    
     const button = document.getElementById('demo-button');
     const demoText = document.getElementById('demo-text');
     
-    // Обработчик клика на кнопку
+    
     button.addEventListener('click', function() {
         const messages = [
             'Привет! Это работает! 🎉',
@@ -13,10 +13,10 @@ document.addEventListener('DOMContentLoaded', function() {
             'Все системы работают! 💪'
         ];
         
-        // Выбираем случайное сообщение
+        
         const randomMessage = messages[Math.floor(Math.random() * messages.length)];
         
-        // Добавляем анимацию с использованием Tailwind классов
+        
         demoText.classList.add('opacity-0');
         
         setTimeout(() => {
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 200);
     });
     
-    // Инициализация
+    
     console.log('Frontend проект загружен успешно!');
 });
 

@@ -1,12 +1,9 @@
-/**
- * Компонент нижней панели для отображения метрик и лога событий
- */
 class BottomPanel {
     constructor(container, options = {}) {
         this.container = container;
         this.metrics = options.metrics || {};
         this.eventLog = options.eventLog || [];
-        this.activeTab = 'metrics'; // 'metrics' или 'log'
+        this.activeTab = 'metrics'; 
         this.render();
         this.attachEventListeners();
     }
@@ -28,7 +25,7 @@ class BottomPanel {
     }
     
     attachEventListeners() {
-        // Обработчики будут добавлены после рендера
+        
         setTimeout(() => {
             const metricsTab = this.container.querySelector('.tab-metrics');
             const logTab = this.container.querySelector('.tab-log');
@@ -114,8 +111,8 @@ class BottomPanel {
     }
     
     renderMetricCard(title, value, format = 'number', color = 'blue') {
-        // Для процентов: если value уже в процентах (0-100), используем как есть
-        // Если value в долях (0-1), умножаем на 100
+        
+        
         const formattedValue = format === 'percent' 
             ? `${(value > 1 ? value : value * 100).toFixed(2)}%` 
             : this.formatMetricValue(value);
@@ -150,7 +147,7 @@ class BottomPanel {
             `;
         }
         
-        // Показываем все события в обратном порядке (новые сверху)
+        
         const events = [...this.eventLog].reverse();
         
         const eventItems = events.map((event, index) => {

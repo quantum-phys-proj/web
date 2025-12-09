@@ -1,7 +1,3 @@
-/**
- * Симулятор алгоритма BB84
- * Управляет шагами симуляции и состоянием
- */
 class BB84Simulator {
     constructor(container) {
         this.container = container;
@@ -11,49 +7,49 @@ class BB84Simulator {
             aliceBits: [],
             aliceBases: [],
             aliceQubits: [],
-            channelQubits: [], // Кубиты в канале (после атаки Евы)
-            eveAttacks: {}, // Атаки Евы {index: {attackType, basis, measuredBit, qubit}}
+            channelQubits: [], 
+            eveAttacks: {}, 
             bobBases: [],
             bobBits: [],
-            keptIndices: [], // Индексы совпадающих битов после шага 7
-            aliceMatchingBits: [], // Биты Алисы для совпадающих позиций (с originalIndex)
-            bobMatchingBits: [], // Биты Боба для совпадающих позиций (с originalIndex)
-            reconciliationIndices: [], // Индексы битов для reconciliation (после шага 8)
-            aliceReconciliationBits: [], // Биты Алисы для reconciliation
-            bobReconciliationBits: [], // Биты Боба для reconciliation
-            reconciledAliceBits: [], // Биты Алисы после reconciliation
-            reconciledBobBits: [], // Биты Боба после reconciliation
-            parityRevealed: [], // Раскрытая информация (паритеты блоков)
-            finalKey: [], // Финальный ключ после privacy amplification
-            finalKeyLength: 0, // Длина финального ключа
-            hashSeed: null, // Seed для хэш-функции privacy amplification
-            eveCheckErrorCount: 0, // Количество ошибок, обнаруженных при проверке Евы (шаг 8)
-            eveCheckLength: 0, // Количество битов, проверенных на шаге 8
-            isProtocolAborted: false, // Флаг прерывания протокола
-            // Добавляем другие поля по мере необходимости
+            keptIndices: [], 
+            aliceMatchingBits: [], 
+            bobMatchingBits: [], 
+            reconciliationIndices: [], 
+            aliceReconciliationBits: [], 
+            bobReconciliationBits: [], 
+            reconciledAliceBits: [], 
+            reconciledBobBits: [], 
+            parityRevealed: [], 
+            finalKey: [], 
+            finalKeyLength: 0, 
+            hashSeed: null, 
+            eveCheckErrorCount: 0, 
+            eveCheckLength: 0, 
+            isProtocolAborted: false, 
+            
         };
-        this.stepHistory = []; // История состояний для каждого шага
+        this.stepHistory = []; 
         this.isRunning = false;
         this.autoPlayInterval = null;
-        this.autoPlayDelay = 1500; // Задержка между шагами в мс
+        this.autoPlayDelay = 1500; 
         
-        this.stepContainers = new Map(); // Хранит контейнеры для каждого шага
-        this.bitTapes = new Map(); // Хранит экземпляры BitTape
-        this.stepBitTapes = new Map(); // Хранит BitTape для каждого шага (Map<stepNumber, Array<BitTape>>)
-        this.renderedSteps = new Set(); // Отслеживаем уже отрендеренные шаги
-        this.stepHeaderContainer = null; // Контейнер для общего заголовка шага
-        this.selectedElement = null; // Выбранный элемент (кубит или бит)
-        this.selectedElementStep = null; // Шаг, в котором находится выбранный элемент
-        this.selectedIndices = []; // Множественный выбор для шага 4 (атаки Евы)
-        this.lastSelectedIndex = null; // Последний выбранный индекс для диапазонного выбора
-        this.qubitDetails = null; // Экземпляр QubitDetails
-        this.bottomPanel = null; // Экземпляр BottomPanel
-        this.eventLog = []; // Лог событий
+        this.stepContainers = new Map(); 
+        this.bitTapes = new Map(); 
+        this.stepBitTapes = new Map(); 
+        this.renderedSteps = new Set(); 
+        this.stepHeaderContainer = null; 
+        this.selectedElement = null; 
+        this.selectedElementStep = null; 
+        this.selectedIndices = []; 
+        this.lastSelectedIndex = null; 
+        this.qubitDetails = null; 
+        this.bottomPanel = null; 
+        this.eventLog = []; 
         
         this.loadState();
         this.initSteps();
         this.createStepHeader();
-        this.updateStepHeader(0); // Скрываем заголовок на шаге 0
+        this.updateStepHeader(0); 
         this.initDetailsPanel();
         this.initBottomPanel();
     }
@@ -79,27 +75,27 @@ class BB84Simulator {
     }
     
     getMetrics() {
-        // 1. QBER (Quantum Bit Error Rate) - процент ошибок при проверке на шаге 8
-        // QBER рассчитывается ТОЛЬКО после шага 8 (проверка на вмешательство Евы)
-        // До шага 8 QBER неизвестен, показываем 0
+        
+        
+        
         let qber = 0;
         if (this.state.eveCheckLength > 0 && this.state.eveCheckErrorCount !== undefined) {
-            // QBER рассчитывается только после проверки на шаге 8
+            
             qber = (this.state.eveCheckErrorCount / this.state.eveCheckLength) * 100;
         }
-        // НЕ используем альтернативный расчет на основе matching bits - это не QBER!
         
-        // 2. Атаковано Евой - количество кубитов, которые атаковала Ева
+        
+        
         const eve_attacked_count = this.state.eveAttacks ? Object.keys(this.state.eveAttacks).length : 0;
         
-        // 3. Размер ключа - ТОЛЬКО длина финального ключа (m) после Privacy Amplification
-        // Не показываем промежуточные значения (keptIndices, reconciliation bits и т.д.)
+        
+        
         let key_size = 0;
         if (this.state.finalKey && this.state.finalKey.length > 0) {
-            // Показываем только финальный ключ после Privacy Amplification
+            
             key_size = this.state.finalKeyLength || this.state.finalKey.length;
         }
-        // До шага 9 (Privacy Amplification) размер ключа = 0
+        
         
         return {
             qber: qber,
@@ -117,7 +113,7 @@ class BB84Simulator {
             message: message,
             type: type
         });
-        // Ограничиваем размер лога до 100 событий
+        
         if (this.eventLog.length > 100) {
             this.eventLog = this.eventLog.slice(-100);
         }
@@ -154,12 +150,12 @@ class BB84Simulator {
             });
         }
         
-        // Теперь устанавливаем новый выбор
+        
         this.selectedElement = elementData;
         this.selectedElementStep = this.currentStep;
         
-        // Собираем альтернативные индексы для кубитов (все индексы кубитов на текущем шаге)
-        // На шаге 3 панель выбора кубита не должна показываться
+        
+        
         let alternateIndices = [];
         if (elementData.type === 'qubit' && this.state.aliceQubits && this.currentStep !== 3) {
             alternateIndices = this.state.aliceQubits.map((q, i) => i);
@@ -212,14 +208,14 @@ class BB84Simulator {
             }
         }
         
-        // Добавляем событие в лог
+        
         const elementType = elementData.type === 'qubit' ? 'кубит' : 'бит';
         const displayIndex = elementData.displayIndex !== undefined ? elementData.displayIndex : elementData.index;
         this.addEvent(`Выбран ${elementType} #${displayIndex} из "${elementData.tapeTitle || 'ленты'}"`, 'info');
     }
     
     selectQubitByIndex(index) {
-        // На шаге 4 работаем с кубитами Евы
+        
         if (this.currentStep === 4 && this.state.channelQubits && this.state.channelQubits[index]) {
             const qubit = this.state.channelQubits[index];
             const elementData = {
@@ -232,23 +228,23 @@ class BB84Simulator {
                 tapeTitle: 'Кубиты в канале (Ева видит)'
             };
             
-            // Обновляем панель деталей
+            
             if (this.qubitDetails) {
                 this.qubitDetails.setSelectedElement(elementData);
                 this.qubitDetails.setAlternateIndices(this.selectedIndices);
             }
             
-            // Обновляем lastSelectedIndex
+            
             this.lastSelectedIndex = index;
             
-            // Подсвечиваем кубит в ленте (если нужно)
+            
             const eveTape = this.bitTapes.get('eveQubits');
             if (eveTape) {
-                // Не вызываем selectElement, чтобы не нарушить множественный выбор
-                // Просто обновляем визуальное состояние
+                
+                
             }
         } else if (this.state.aliceQubits && this.state.aliceQubits[index]) {
-            // Стандартная логика для других шагов
+            
             const qubit = this.state.aliceQubits[index];
             const elementData = {
                 type: 'qubit',
@@ -261,7 +257,7 @@ class BB84Simulator {
             };
             this.handleElementClick(elementData, null);
             
-            // Подсвечиваем кубит в ленте
+            
             const qubitTape = this.bitTapes.get('aliceQubits');
             if (qubitTape) {
                 qubitTape.selectElement(index, qubit, null);
@@ -276,12 +272,12 @@ class BB84Simulator {
             this.qubitDetails.setSelectedElement(null);
         }
         
-        // Убираем подсветку со всех лент
+        
         this.bitTapes.forEach(tape => {
             tape.clearSelection();
         });
         
-        // Очищаем множественный выбор для шага 4
+        
         if (this.currentStep === 4) {
             this.selectedIndices = [];
             this.lastSelectedIndex = null;
@@ -290,48 +286,48 @@ class BB84Simulator {
     }
     
     handleEveQubitClick(elementData, event) {
-        // Обработка клика по кубиту Евы
+        
         if (this.currentStep !== 4) return;
         
-        // Получаем текущий выбор из ленты
+        
         const eveTape = this.bitTapes.get('eveQubits');
         if (eveTape && eveTape.selectedIndices) {
             this.selectedIndices = Array.from(eveTape.selectedIndices);
             this.lastSelectedIndex = elementData.index;
             this.updateEveAttackPanel();
             
-            // Обновляем панель деталей с выбранным кубитом
+            
             this.updateEveQubitDetails();
         }
     }
     
     handleEveMultiSelect(indices) {
-        // Обработка множественного выбора (вызывается из BitTape)
+        
         if (this.currentStep !== 4) return;
         
         this.selectedIndices = [...indices];
         this.updateEveAttackPanel();
         
-        // Обновляем панель деталей
+        
         this.updateEveQubitDetails();
         
-        // Обновляем lastSelectedIndex
+        
         if (indices.length > 0) {
             this.lastSelectedIndex = indices[indices.length - 1];
         }
     }
     
     updateEveQubitDetails() {
-        // Обновляем панель деталей для выбранных кубитов Евы
+        
         if (!this.qubitDetails || this.currentStep !== 4) return;
         
         if (this.selectedIndices.length === 0) {
-            // Очищаем панель, если ничего не выбрано
+            
             this.qubitDetails.setSelectedElement(null);
             return;
         }
         
-        // Показываем первый выбранный кубит или последний выбранный
+        
         const indexToShow = this.lastSelectedIndex !== null && this.selectedIndices.includes(this.lastSelectedIndex)
             ? this.lastSelectedIndex
             : this.selectedIndices[0];
@@ -339,7 +335,7 @@ class BB84Simulator {
         const qubit = this.state.channelQubits[indexToShow];
         if (!qubit) return;
         
-        // Создаем данные элемента для отображения
+        
         const elementData = {
             type: 'qubit',
             index: indexToShow,
@@ -350,13 +346,13 @@ class BB84Simulator {
             tapeTitle: 'Кубиты в канале (Ева видит)'
         };
         
-        // Устанавливаем выбранный элемент и альтернативные индексы (для меню выбора)
+        
         this.qubitDetails.setSelectedElement(elementData);
         this.qubitDetails.setAlternateIndices(this.selectedIndices);
     }
     
     createEveAttackPanel(container) {
-        // Создаем панель управления атакой Евы
+        
         this.eveAttackPanelContainer = container;
         this.eveAttackState = {
             attackType: 'intercept_resend',
@@ -452,7 +448,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Добавляем обработчики событий
+        
         this.attachEveAttackPanelHandlers();
     }
     
@@ -470,7 +466,7 @@ class BB84Simulator {
     }
     
     attachEveAttackPanelHandlers() {
-        // Обработчик типа атаки
+        
         const attackTypeSelect = document.getElementById('eve-attack-type');
         if (attackTypeSelect) {
             attackTypeSelect.addEventListener('change', (e) => {
@@ -478,7 +474,7 @@ class BB84Simulator {
             });
         }
         
-        // Обработчики базисов
+        
         const basisZBtn = document.getElementById('eve-basis-z');
         if (basisZBtn) {
             basisZBtn.addEventListener('click', () => {
@@ -499,7 +495,7 @@ class BB84Simulator {
             });
         }
         
-        // Обработчик случайных базисов
+        
         const randomBasisCheckbox = document.getElementById('eve-random-basis');
         if (randomBasisCheckbox) {
             randomBasisCheckbox.addEventListener('change', (e) => {
@@ -508,7 +504,7 @@ class BB84Simulator {
             });
         }
         
-        // Обработчик применения атаки
+        
         const applyBtn = document.getElementById('eve-apply-attack-btn');
         if (applyBtn) {
             applyBtn.addEventListener('click', () => {
@@ -527,7 +523,7 @@ class BB84Simulator {
         const basis = this.eveAttackState.selectedBasis || 'Z';
         const useRandomBasis = this.eveAttackState.useRandomBasis;
         
-        // Применяем атаку к каждому выбранному кубиту
+        
         const results = [];
         for (const index of this.selectedIndices) {
             if (index < 0 || index >= this.state.channelQubits.length) {
@@ -538,16 +534,16 @@ class BB84Simulator {
                 ? (Math.random() < 0.5 ? 'Z' : 'X')
                 : basis;
             
-            // Измеряем кубит в базисе
+            
             const measuredBit = this.measureInBasis(this.state.channelQubits[index], currentBasis);
             
-            // Создаем новый кубит на основе измеренного бита
+            
             const newQubit = this.prepareBasisQubit(measuredBit, currentBasis, index);
             
-            // Обновляем кубит в канале
+            
             this.state.channelQubits[index] = newQubit;
             
-            // Сохраняем информацию об атаке
+            
             if (!this.state.eveAttacks) {
                 this.state.eveAttacks = {};
             }
@@ -570,10 +566,10 @@ class BB84Simulator {
         this.saveState();
         this.addEvent(`Ева применила атаку к ${results.length} кубитам`, 'info');
         
-        // Обновляем метрики после атаки Евы
+        
         this.updateBottomPanel();
         
-        // Обновляем отображение ленты
+        
         const eveTape = this.bitTapes.get('eveQubits');
         if (eveTape) {
             const eveQubits = this.state.channelQubits.map((qubit, index) => {
@@ -590,53 +586,53 @@ class BB84Simulator {
             eveTape.updateBits(eveQubits);
         }
         
-        // Очищаем выбор
+        
         this.selectedIndices = [];
         this.lastSelectedIndex = null;
         this.eveAttackState.isApplying = false;
         this.updateEveAttackPanel();
         
-        // Очищаем панель деталей
+        
         if (this.qubitDetails) {
             this.qubitDetails.setSelectedElement(null);
         }
         
-        // Подсвечиваем атакованные кубиты
+        
         if (eveTape) {
             eveTape.setSelectedIndices([]);
         }
     }
     
     measureInBasis(qubit, basis) {
-        // Измеряем кубит в указанном базисе
+        
         const alphaReal = qubit.alpha.real || 0;
         const alphaImag = qubit.alpha.imag || 0;
         const betaReal = qubit.beta.real || 0;
         const betaImag = qubit.beta.imag || 0;
         
         if (basis === 'X') {
-            // X базис: |+> = (|0> + |1>)/√2, |-> = (|0> - |1>)/√2
-            // Вероятность получить |+>: |(alpha + beta)/√2|²
+            
+            
             const alphaPlusReal = (alphaReal + betaReal) / Math.sqrt(2);
             const alphaPlusImag = (alphaImag + betaImag) / Math.sqrt(2);
             const probPlus = alphaPlusReal * alphaPlusReal + alphaPlusImag * alphaPlusImag;
-            return Math.random() >= probPlus; // false = |+>, true = |->
+            return Math.random() >= probPlus; 
         } else {
-            // Z базис (по умолчанию)
-            // Вероятность получить |0>: |alpha|²
+            
+            
             const prob0 = alphaReal * alphaReal + alphaImag * alphaImag;
-            return Math.random() >= prob0; // false = |0>, true = |1>
+            return Math.random() >= prob0; 
         }
     }
     
     prepareBasisQubit(bit, basis, index) {
-        // Создаем новый кубит на основе бита и базиса
+        
         const sqrtTwo = Math.sqrt(2);
         const oneOverSqrtTwo = 1 / sqrtTwo;
         
         if (basis === 'X') {
             if (!bit) {
-                // |+> = 1/√2 |0> + 1/√2 |1>
+                
                 return {
                     index: index,
                     basis: 'X',
@@ -647,7 +643,7 @@ class BB84Simulator {
                     symbol: '|+⟩'
                 };
             } else {
-                // |-> = 1/√2 |0> - 1/√2 |1>
+                
                 return {
                     index: index,
                     basis: 'X',
@@ -659,9 +655,9 @@ class BB84Simulator {
                 };
             }
         } else {
-            // Z базис
+            
             if (!bit) {
-                // |0> = 1|0> + 0|1>
+                
                 return {
                     index: index,
                     basis: 'Z',
@@ -672,7 +668,7 @@ class BB84Simulator {
                     symbol: '|0⟩'
                 };
             } else {
-                // |1> = 0|0> + 1|1>
+                
                 return {
                     index: index,
                     basis: 'Z',
@@ -687,10 +683,10 @@ class BB84Simulator {
     }
     
     createStepHeader() {
-        // Используем существующий контейнер из HTML или создаем новый
+        
         this.stepHeaderContainer = document.getElementById('step-header-container');
         if (!this.stepHeaderContainer) {
-            // Если контейнер не найден, создаем его в wrapper
+            
             const wrapper = document.getElementById('simulation-content-wrapper');
             if (wrapper) {
                 this.stepHeaderContainer = document.createElement('div');
@@ -709,13 +705,13 @@ class BB84Simulator {
     updateStepHeader(stepNumber) {
         if (!this.stepHeaderContainer || !this.steps[stepNumber]) return;
         
-        // На шаге 0 не показываем заголовок
+        
         if (stepNumber === 0) {
             this.stepHeaderContainer.style.display = 'none';
             return;
         }
         
-        // Показываем заголовок для остальных шагов (только название, без описания)
+        
         this.stepHeaderContainer.style.display = 'block';
         
         const step = this.steps[stepNumber];
@@ -775,7 +771,7 @@ class BB84Simulator {
     }
     
     renderStep0() {
-        // Шаг 0 - начало симуляции
+        
         const stepContainer = this.getOrCreateStepContainer(0);
         stepContainer.innerHTML = `
             <div class="step-content p-6 rounded-2xl bg-gray-800/40 border border-gray-600/30 backdrop-blur-sm">
@@ -787,21 +783,21 @@ class BB84Simulator {
     }
     
     renderStep1() {
-        // Шаг 1 - Алиса генерирует случайные биты
+        
         const stepContainer = this.getOrCreateStepContainer(1);
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
         const delta = (typeof panelState !== 'undefined' && panelState.config && panelState.config.delta) ? panelState.config.delta : 0.5;
         
-        // Генерируем (4 + δ)n битов согласно протоколу BB84
+        
         const totalBits = Math.ceil((4 + delta) * n);
         
-        // Если длина битов не соответствует (4 + δ)n, перегенерируем
+        
         if (this.state.aliceBits.length !== totalBits) {
             this.state.aliceBits = this.generateRandomBits(totalBits);
             this.saveState();
             this.addEvent(`Сгенерировано ${totalBits} случайных битов (${4 + delta} × ${n})`, 'info');
         } else if (this.state.aliceBits.length === 0) {
-            // Генерируем случайные биты, если их еще нет
+            
             this.state.aliceBits = this.generateRandomBits(totalBits);
             this.saveState();
             this.addEvent(`Сгенерировано ${totalBits} случайных битов (${4 + delta} × ${n})`, 'info');
@@ -814,10 +810,10 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем битную ленту для битов Алисы
+        
         const tapeContainer = stepContainer.querySelector('#alice-bits-tape-container');
         if (tapeContainer) {
-            // Используем setTimeout для анимации после рендера
+            
             setTimeout(() => {
                 const bitTape = new BitTape(tapeContainer, {
                     title: 'Биты Алисы',
@@ -828,7 +824,7 @@ class BB84Simulator {
                 });
                 this.bitTapes.set('aliceBits', bitTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(1)) {
                     this.stepBitTapes.set(1, []);
                 }
@@ -838,19 +834,19 @@ class BB84Simulator {
     }
     
     renderStep2() {
-        // Шаг 2 - Алиса выбирает случайные базисы для кодирования
+        
         const stepContainer = this.getOrCreateStepContainer(2);
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
         const delta = (typeof panelState !== 'undefined' && panelState.config && panelState.config.delta) ? panelState.config.delta : 0.5;
         const totalBits = Math.ceil((4 + delta) * n);
         
-        // Убеждаемся, что биты уже сгенерированы (должно быть (4 + δ)n)
+        
         if (this.state.aliceBits.length === 0 || this.state.aliceBits.length !== totalBits) {
             this.state.aliceBits = this.generateRandomBits(totalBits);
             this.saveState();
         }
         
-        // Генерируем случайные базисы (должно быть столько же, сколько битов)
+        
         const bitsCount = this.state.aliceBits.length;
         if (this.state.aliceBases.length === 0 || this.state.aliceBases.length !== bitsCount) {
             this.state.aliceBases = this.generateRandomBases(bitsCount);
@@ -858,7 +854,7 @@ class BB84Simulator {
             this.addEvent(`Выбрано ${bitsCount} случайных базисов`, 'info');
         }
         
-        // Конвертируем базисы для отображения: true -> 'Z', false -> 'X'
+        
         const displayBases = this.convertBasesToDisplay(this.state.aliceBases);
         
         stepContainer.innerHTML = `
@@ -868,10 +864,10 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем битную ленту для базисов Алисы
+        
         const tapeContainer = stepContainer.querySelector('#alice-bases-tape-container');
         if (tapeContainer) {
-            // Используем setTimeout для анимации после рендера
+            
             setTimeout(() => {
                 const bitTape = new BitTape(tapeContainer, {
                     title: 'Алиса: Базисы',
@@ -882,7 +878,7 @@ class BB84Simulator {
                 });
                 this.bitTapes.set('aliceBases', bitTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(2)) {
                     this.stepBitTapes.set(2, []);
                 }
@@ -892,13 +888,13 @@ class BB84Simulator {
     }
     
     renderStep3() {
-        // Шаг 3 - Алиса кодирует биты в кубиты
+        
         const stepContainer = this.getOrCreateStepContainer(3);
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
         const delta = (typeof panelState !== 'undefined' && panelState.config && panelState.config.delta) ? panelState.config.delta : 0.5;
         const totalBits = Math.ceil((4 + delta) * n);
         
-        // Убеждаемся, что биты и базисы уже сгенерированы
+        
         if (!this.state.aliceBits || this.state.aliceBits.length === 0 || this.state.aliceBits.length !== totalBits) {
             this.state.aliceBits = this.generateRandomBits(totalBits);
         }
@@ -907,12 +903,12 @@ class BB84Simulator {
             this.state.aliceBases = this.generateRandomBases(bitsCount);
         }
         
-        // Инициализируем aliceQubits, если его нет
+        
         if (!this.state.aliceQubits) {
             this.state.aliceQubits = [];
         }
         
-        // Кодируем кубиты, если их еще нет или их количество не совпадает
+        
         if (this.state.aliceQubits.length === 0 || this.state.aliceQubits.length !== bitsCount) {
             this.state.aliceQubits = this.encodeQubits(this.state.aliceBits, this.state.aliceBases);
             this.saveState();
@@ -926,7 +922,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем кубитную ленту
+        
         const tapeContainer = stepContainer.querySelector('#alice-qubits-tape-container');
         if (tapeContainer) {
             setTimeout(() => {
@@ -939,7 +935,7 @@ class BB84Simulator {
                 });
                 this.bitTapes.set('aliceQubits', bitTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(3)) {
                     this.stepBitTapes.set(3, []);
                 }
@@ -949,39 +945,39 @@ class BB84Simulator {
     }
     
     renderStep4() {
-        // Шаг 4 - Атаки Евы
+        
         const stepContainer = this.getOrCreateStepContainer(4);
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
         
-        // Убеждаемся, что кубиты Алисы уже созданы
+        
         if (!this.state.aliceQubits || this.state.aliceQubits.length === 0) {
-            // Если кубитов нет, нужно вернуться к предыдущим шагам
+            
             this.addEvent('Ошибка: кубиты Алисы не созданы. Вернитесь к шагу 3.', 'error');
             return;
         }
         
-        // Инициализируем channelQubits как копию aliceQubits, если их еще нет
+        
         if (!this.state.channelQubits || this.state.channelQubits.length === 0) {
             this.state.channelQubits = JSON.parse(JSON.stringify(this.state.aliceQubits));
         }
         
-        // Инициализируем eveAttacks, если их еще нет
+        
         if (!this.state.eveAttacks) {
             this.state.eveAttacks = {};
         }
         
-        // Создаем кубиты для отображения Еве (без информации о базисах)
+        
         const eveQubits = this.state.channelQubits.map((qubit, index) => {
-            // Ева видит только символ кубита, но не знает базис
+            
             return {
                 index: index,
                 symbol: qubit.symbol,
-                // Не передаем basis в отображение для Евы
+                
                 alpha: qubit.alpha,
                 beta: qubit.beta,
                 prob0: qubit.prob0,
                 prob1: qubit.prob1,
-                // Добавляем информацию о том, был ли кубит атакован
+                
                 attacked: this.state.eveAttacks[index] !== undefined
             };
         });
@@ -994,7 +990,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем ленту кубитов для Евы
+        
         const tapeContainer = stepContainer.querySelector('#eve-qubits-tape-container');
         if (tapeContainer) {
             setTimeout(() => {
@@ -1003,41 +999,41 @@ class BB84Simulator {
                     variant: 'qubit',
                     bits: eveQubits,
                     shouldAnimate: true,
-                    allowMultiSelect: true, // Разрешаем множественный выбор
-                    hideBasis: true, // Скрываем базис, так как Ева его не знает
+                    allowMultiSelect: true, 
+                    hideBasis: true, 
                     onElementClick: (elementData, event) => this.handleEveQubitClick(elementData, event),
                     onMultiSelect: (indices) => this.handleEveMultiSelect(indices)
                 });
                 this.bitTapes.set('eveQubits', bitTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(4)) {
                     this.stepBitTapes.set(4, []);
                 }
                 this.stepBitTapes.get(4).push(bitTape);
                 
-                // Создаем панель управления атакой
+                
                 this.createEveAttackPanel(stepContainer.querySelector('#eve-attack-panel-container'));
             }, 50);
         }
     }
     
     renderStep5() {
-        // Шаг 5 - Боб получил кубиты
+        
         const stepContainer = this.getOrCreateStepContainer(5);
         
-        // Убеждаемся, что кубиты в канале уже созданы
+        
         if (!this.state.channelQubits || this.state.channelQubits.length === 0) {
-            // Если кубитов нет, нужно вернуться к предыдущим шагам
+            
             this.addEvent('Ошибка: кубиты в канале не созданы. Вернитесь к шагу 4.', 'error');
             return;
         }
         
-        // Проверяем, существует ли уже лента кубитов Боба
+        
         const existingBobTape = this.bitTapes.get('bobQubits');
         
         if (existingBobTape && stepContainer.querySelector('#bob-qubits-tape-container')) {
-            // Если лента уже существует, просто обновляем данные
+            
             const bobQubits = this.state.channelQubits.map((qubit, index) => {
                 return {
                     index: index,
@@ -1053,12 +1049,12 @@ class BB84Simulator {
             return;
         }
         
-        // Создаем кубиты для отображения Бобу (кубиты, которые пришли от Евы)
+        
         const bobQubits = this.state.channelQubits.map((qubit, index) => {
             return {
                 index: index,
                 symbol: qubit.symbol,
-                basis: qubit.basis, // Боб видит кубиты, но не знает исходный базис Алисы
+                basis: qubit.basis, 
                 alpha: qubit.alpha,
                 beta: qubit.beta,
                 prob0: qubit.prob0,
@@ -1073,7 +1069,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем ленту кубитов для Боба
+        
         const tapeContainer = stepContainer.querySelector('#bob-qubits-tape-container');
         if (tapeContainer) {
             setTimeout(() => {
@@ -1082,13 +1078,13 @@ class BB84Simulator {
                     variant: 'qubit',
                     bits: bobQubits,
                     shouldAnimate: true,
-                    allowMultiSelect: false, // Одиночный выбор только
-                    hideBasis: true, // Скрываем базис, так как Боб его не знает
+                    allowMultiSelect: false, 
+                    hideBasis: true, 
                     onElementClick: (elementData, event) => this.handleBobQubitClick(elementData, event)
                 });
                 this.bitTapes.set('bobQubits', bitTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(5)) {
                     this.stepBitTapes.set(5, []);
                 }
@@ -1098,8 +1094,8 @@ class BB84Simulator {
     }
     
     handleBobQubitClick(elementData, event) {
-        // Обработка клика по кубиту Боба - одиночный выбор
-        // Разрешаем выбор на шагах 5 и 6 (так как на шаге 6 также отображается шаг 5)
+        
+        
         if (this.currentStep !== 5 && this.currentStep !== 6) return;
         
         if (this.currentStep === 6) {
@@ -1121,11 +1117,11 @@ class BB84Simulator {
             });
         }
         
-        // Устанавливаем новый выбор
-        this.selectedElement = elementData;
-        this.selectedElementStep = 5; // Всегда шаг 5 для кубитов Боба
         
-        // Обновляем панель деталей
+        this.selectedElement = elementData;
+        this.selectedElementStep = 5; 
+        
+        
         if (this.qubitDetails) {
             const qubit = this.state.channelQubits[elementData.index];
             if (qubit) {
@@ -1139,7 +1135,7 @@ class BB84Simulator {
                     tapeTitle: 'Кубиты, полученные Бобом'
                 };
                 this.qubitDetails.setSelectedElement(elementDataForDetails);
-                this.qubitDetails.setAlternateIndices([]); // Нет альтернативных индексов для одиночного выбора
+                this.qubitDetails.setAlternateIndices([]); 
             }
         }
         
@@ -1158,16 +1154,16 @@ class BB84Simulator {
             }
         }
         
-        // Добавляем событие в лог
+        
         const displayIndex = elementData.displayIndex !== undefined ? elementData.displayIndex : elementData.index;
         this.addEvent(`Выбран кубит #${displayIndex} из "Кубиты, полученные Бобом"`, 'info');
     }
     
     renderStep6() {
-        // Шаг 6 - Боб выбирает случайные базисы и измеряет кубиты
+        
         const stepContainer = this.getOrCreateStepContainer(6);
         
-        // Убеждаемся, что кубиты в канале уже созданы
+        
         if (!this.state.channelQubits || this.state.channelQubits.length === 0) {
             this.addEvent('Ошибка: кубиты в канале не созданы. Вернитесь к шагу 4.', 'error');
             return;
@@ -1175,14 +1171,14 @@ class BB84Simulator {
         
         const n = this.state.channelQubits.length;
         
-        // Генерируем случайные базисы для Боба, если их еще нет
+        
         if (!this.state.bobBases || this.state.bobBases.length === 0 || this.state.bobBases.length !== n) {
             this.state.bobBases = this.generateRandomBases(n);
             this.saveState();
             this.addEvent(`Боб выбрал ${n} случайных базисов`, 'info');
         }
         
-        // Измеряем кубиты в базисах Боба и получаем биты
+        
         if (!this.state.bobBits || this.state.bobBits.length === 0 || this.state.bobBits.length !== n) {
             this.state.bobBits = [];
             for (let i = 0; i < n; i++) {
@@ -1195,7 +1191,7 @@ class BB84Simulator {
             this.addEvent(`Боб измерил ${n} кубитов и получил биты`, 'info');
         }
         
-        // Конвертируем базисы для отображения
+        
         const displayBases = this.convertBasesToDisplay(this.state.bobBases);
         
         stepContainer.innerHTML = `
@@ -1206,7 +1202,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем ленту базисов Боба
+        
         const basesContainer = stepContainer.querySelector('#bob-bases-tape-container');
         if (basesContainer) {
             setTimeout(() => {
@@ -1219,7 +1215,7 @@ class BB84Simulator {
                 });
                 this.bitTapes.set('bobBases', basesTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(6)) {
                     this.stepBitTapes.set(6, []);
                 }
@@ -1229,7 +1225,7 @@ class BB84Simulator {
             }, 50);
         }
         
-        // Создаем ленту битов Боба
+        
         const bitsContainer = stepContainer.querySelector('#bob-bits-tape-container');
         if (bitsContainer) {
             setTimeout(() => {
@@ -1242,7 +1238,7 @@ class BB84Simulator {
                 });
                 this.bitTapes.set('bobBits', bitsTape);
                 
-                // Сохраняем ссылку на BitTape для этого шага
+                
                 if (!this.stepBitTapes.has(6)) {
                     this.stepBitTapes.set(6, []);
                 }
@@ -1304,10 +1300,10 @@ class BB84Simulator {
     }
     
     renderStep7() {
-        // Шаг 7 - Сравнение битов Алисы и Боба
+        
         const stepContainer = this.getOrCreateStepContainer(7);
         
-        // Проверяем, что у нас есть базисы и биты Алисы и Боба
+        
         if (!this.state.aliceBases || this.state.aliceBases.length === 0 ||
             !this.state.bobBases || this.state.bobBases.length === 0 ||
             !this.state.aliceBits || this.state.aliceBits.length === 0 ||
@@ -1318,9 +1314,9 @@ class BB84Simulator {
         
         const totalBits = this.state.aliceBases.length;
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
-        const minRequiredBits = 2 * n; // Требуется минимум 2n битов
+        const minRequiredBits = 2 * n; 
         
-        // Находим индексы, где базисы совпали и не совпали
+        
         const matchingIndices = [];
         const nonMatchingIndices = [];
         for (let i = 0; i < totalBits; i++) {
@@ -1331,12 +1327,12 @@ class BB84Simulator {
             }
         }
         
-        // Проверяем, что достаточно совпадений (минимум 2n)
+        
         if (matchingIndices.length < minRequiredBits) {
-            // Протокол прерывается
+            
             this.state.isProtocolAborted = true;
             
-            // Останавливаем автоплей, если он запущен
+            
             if (this.isRunning) {
                 this.stopAutoPlay();
             }
@@ -1344,7 +1340,7 @@ class BB84Simulator {
             const message = `Недостаточно совпадающих базисов. Получено ${matchingIndices.length} совпадений, требуется минимум ${minRequiredBits}.`;
             this.addEvent(`Протокол прерван: ${message}`, 'error');
             
-            // Показываем уведомление о прерывании протокола
+            
             if (typeof window.showProtocolAbortedNotification === 'function') {
                 window.showProtocolAbortedNotification(message);
             }
@@ -1368,14 +1364,14 @@ class BB84Simulator {
             return;
         }
         
-        // Берем первые 2n битов из совпадающих
+        
         const keptIndices = matchingIndices.slice(0, minRequiredBits);
         
-        // Создаем массивы для отображения
+        
         const aliceBasesDisplay = this.convertBasesToDisplay(this.state.aliceBases);
         const bobBasesDisplay = this.convertBasesToDisplay(this.state.bobBases);
         
-        // Биты только для совпадающих позиций с оригинальными индексами
+        
         const aliceMatchingBits = keptIndices.map(i => ({
             value: this.state.aliceBits[i],
             originalIndex: i
@@ -1385,7 +1381,7 @@ class BB84Simulator {
             originalIndex: i
         }));
         
-        // Создаем массив для выделения совпадающих базисов (для визуализации)
+        
         const basesMatch = aliceBasesDisplay.map((aliceBasis, i) => 
             aliceBasis === bobBasesDisplay[i]
         );
@@ -1402,10 +1398,10 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем визуализацию сравнения базисов
+        
         const basesContainer = stepContainer.querySelector('#bases-comparison-container');
         if (basesContainer) {
-            // Показываем базисы Алисы и Боба с выделением совпадений
+            
             const comparisonHTML = `
                 <div class="space-y-4">
                     <div>
@@ -1421,7 +1417,7 @@ class BB84Simulator {
             basesContainer.innerHTML = comparisonHTML;
             
             setTimeout(() => {
-                // Лента базисов Алисы с выделением НЕсовпадающих (красным)
+                
                 const aliceBasesContainer = basesContainer.querySelector('#alice-bases-comparison-tape-container');
                 if (aliceBasesContainer) {
                     const aliceBasesTape = new BitTape(aliceBasesContainer, {
@@ -1429,7 +1425,7 @@ class BB84Simulator {
                         variant: 'basis',
                         bits: aliceBasesDisplay,
                         shouldAnimate: true,
-                        highlightIndices: nonMatchingIndices, // Выделяем НЕсовпадающие (красным)
+                        highlightIndices: nonMatchingIndices, 
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
                     this.bitTapes.set('aliceBasesComparison', aliceBasesTape);
@@ -1440,7 +1436,7 @@ class BB84Simulator {
                     this.stepBitTapes.get(7).push(aliceBasesTape);
                 }
                 
-                // Лента базисов Боба с выделением НЕсовпадающих (красным)
+                
                 const bobBasesContainer = basesContainer.querySelector('#bob-bases-comparison-tape-container');
                 if (bobBasesContainer) {
                     const bobBasesTape = new BitTape(bobBasesContainer, {
@@ -1448,7 +1444,7 @@ class BB84Simulator {
                         variant: 'basis',
                         bits: bobBasesDisplay,
                         shouldAnimate: true,
-                        highlightIndices: nonMatchingIndices, // Выделяем НЕсовпадающие (красным)
+                        highlightIndices: nonMatchingIndices, 
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
                     this.bitTapes.set('bobBasesComparison', bobBasesTape);
@@ -1461,7 +1457,7 @@ class BB84Simulator {
             }, 50);
         }
         
-        // Создаем ленты для совпадающих битов
+        
         const matchingBitsContainer = stepContainer.querySelector('#matching-bits-container');
         if (matchingBitsContainer) {
             setTimeout(() => {
@@ -1479,7 +1475,7 @@ class BB84Simulator {
                 `;
                 matchingBitsContainer.innerHTML = matchingBitsHTML;
                 
-                // Лента битов Алисы
+                
                 const aliceBitsContainer = matchingBitsContainer.querySelector('#alice-matching-bits-tape-container');
                 if (aliceBitsContainer) {
                     const aliceBitsTape = new BitTape(aliceBitsContainer, {
@@ -1497,7 +1493,7 @@ class BB84Simulator {
                     this.stepBitTapes.get(7).push(aliceBitsTape);
                 }
                 
-                // Лента битов Боба
+                
                 const bobBitsContainer = matchingBitsContainer.querySelector('#bob-matching-bits-tape-container');
                 if (bobBitsContainer) {
                     const bobBitsTape = new BitTape(bobBitsContainer, {
@@ -1517,22 +1513,22 @@ class BB84Simulator {
             }, 100);
         }
         
-        // Сохраняем данные для шага 8
+        
         this.state.keptIndices = keptIndices;
         this.state.aliceMatchingBits = aliceMatchingBits;
         this.state.bobMatchingBits = bobMatchingBits;
         this.saveState();
         this.addEvent(`Сравнение базисов завершено. Совпало: ${matchingIndices.length}. Оставлено: ${keptIndices.length} битов.`, 'info');
         
-        // Обновляем метрики после шага 7 (теперь можно рассчитать потерянные кубиты)
+        
         this.updateBottomPanel();
     }
     
     renderStep8() {
-        // Шаг 8 - Проверка на вмешательство Евы
+        
         const stepContainer = this.getOrCreateStepContainer(8);
         
-        // Проверяем, что у нас есть данные с шага 7
+        
         if (!this.state.keptIndices || this.state.keptIndices.length === 0 ||
             !this.state.aliceMatchingBits || this.state.aliceMatchingBits.length === 0 ||
             !this.state.bobMatchingBits || this.state.bobMatchingBits.length === 0) {
@@ -1546,15 +1542,15 @@ class BB84Simulator {
                 ? panelState.config.eve_check_subset_len 
                 : 30);
         
-        // Получаем maxEveCheckErrors из конфига
-        // ВАЖНО: Всегда читаем из актуального конфига, не из сохранённого состояния
-        let maxEveCheckErrors = 2; // Значение по умолчанию
         
-        // Проверяем глобальный panelState (приоритет)
-        // Используем явную проверку, чтобы избежать проблем с undefined/null
+        
+        let maxEveCheckErrors = 2; 
+        
+        
+        
         if (typeof window !== 'undefined' && window.panelState && window.panelState.config) {
             const configValue = window.panelState.config.max_eve_check_errors;
-            // Явно проверяем, что значение существует и является числом
+            
             if (configValue !== undefined && configValue !== null && configValue !== '' && !isNaN(Number(configValue))) {
                 maxEveCheckErrors = Number(configValue);
             }
@@ -1565,8 +1561,8 @@ class BB84Simulator {
             }
         }
         
-        // КРИТИЧЕСКАЯ ПРОВЕРКА: Убеждаемся, что значение не было перезаписано
-        // Если значение всё ещё неверное, принудительно читаем из window.panelState
+        
+        
         if (maxEveCheckErrors !== 2 && typeof window !== 'undefined' && window.panelState && window.panelState.config) {
             const directValue = window.panelState.config.max_eve_check_errors;
             if (directValue !== undefined && directValue !== null && directValue !== '' && !isNaN(Number(directValue))) {
@@ -1574,7 +1570,7 @@ class BB84Simulator {
             }
         }
         
-        // Отладочная информация
+        
         console.log('Step 8: maxEveCheckErrors DEBUG:', {
             windowExists: typeof window !== 'undefined',
             windowPanelStateExists: typeof window !== 'undefined' && !!window.panelState,
@@ -1587,12 +1583,12 @@ class BB84Simulator {
             finalType: typeof maxEveCheckErrors
         });
         
-        // Если проверка еще не была выполнена, выбираем случайное подмножество битов
+        
         if (!this.state.eveCheckIndices || this.state.eveCheckIndices.length === 0) {
             const availableBits = this.state.keptIndices.length;
             const subsetSize = Math.min(eveCheckSubsetLen, availableBits);
             
-            // Выбираем случайное подмножество индексов из availableBits
+            
             const allIndices = Array.from({ length: availableBits }, (_, i) => i);
             const shuffled = [...allIndices].sort(() => Math.random() - 0.5);
             this.state.eveCheckIndices = shuffled.slice(0, subsetSize).sort((a, b) => a - b);
@@ -1601,7 +1597,7 @@ class BB84Simulator {
         
         const checkIndices = this.state.eveCheckIndices;
         
-        // Извлекаем биты для проверки
+        
         const aliceCheckBits = checkIndices.map(i => ({
             value: this.state.aliceMatchingBits[i].value,
             originalIndex: this.state.aliceMatchingBits[i].originalIndex
@@ -1611,7 +1607,7 @@ class BB84Simulator {
             originalIndex: this.state.bobMatchingBits[i].originalIndex
         }));
         
-        // Считаем ошибки (несовпадения битов)
+        
         let errorCount = 0;
         const errorIndices = [];
         for (let i = 0; i < checkIndices.length; i++) {
@@ -1621,12 +1617,12 @@ class BB84Simulator {
             }
         }
         
-        // Рассчитываем QBER для отображения в метриках
+        
         const qber = checkIndices.length > 0 ? (errorCount / checkIndices.length) * 100 : 0;
         
-        // ФИНАЛЬНАЯ ПРОВЕРКА: Перечитываем значение из конфига перед проверкой
-        // Это гарантирует, что мы используем актуальное значение, а не кэшированное
-        // Объявляем переменную один раз для использования во всей функции
+        
+        
+        
         let finalMaxEveCheckErrors = maxEveCheckErrors;
         if (typeof window !== 'undefined' && window.panelState && window.panelState.config) {
             const finalValue = window.panelState.config.max_eve_check_errors;
@@ -1635,14 +1631,14 @@ class BB84Simulator {
             }
         }
         
-        // Проверяем, не превышено ли максимальное количество ошибок
-        // В стандартном BB84 протокол прерывается на основе абсолютного количества ошибок,
-        // а не процента (QBER). QBER используется только как метрика для оценки качества канала.
+        
+        
+        
         if (errorCount > finalMaxEveCheckErrors) {
-            // Протокол прерывается
+            
             this.state.isProtocolAborted = true;
             
-            // Останавливаем автоплей, если он запущен
+            
             if (this.isRunning) {
                 this.stopAutoPlay();
             }
@@ -1650,7 +1646,7 @@ class BB84Simulator {
             const message = `Обнаружено слишком много ошибок при проверке на вмешательство Евы. Обнаружено ${errorCount} ошибок из ${checkIndices.length} проверенных битов, допустимо максимум ${finalMaxEveCheckErrors}. QBER = ${qber.toFixed(2)}%.`;
             this.addEvent(`Протокол прерван: ${message}`, 'error');
             
-            // Показываем уведомление о прерывании протокола
+            
             if (typeof window.showProtocolAbortedNotification === 'function') {
                 window.showProtocolAbortedNotification(message);
             }
@@ -1677,7 +1673,7 @@ class BB84Simulator {
                 </div>
             `;
             
-            // Создаем ленты для визуализации ошибок
+            
             const errorContainer = stepContainer.querySelector('#error-comparison-container');
             if (errorContainer) {
                 setTimeout(() => {
@@ -1693,7 +1689,7 @@ class BB84Simulator {
                     `;
                     errorContainer.innerHTML = errorHTML;
                     
-                    // Лента битов Алисы с выделением ошибок
+                    
                     const aliceErrorContainer = errorContainer.querySelector('#alice-error-bits-tape-container');
                     if (aliceErrorContainer) {
                         const aliceErrorTape = new BitTape(aliceErrorContainer, {
@@ -1701,7 +1697,7 @@ class BB84Simulator {
                             variant: 'classical',
                             bits: aliceCheckBits,
                             shouldAnimate: false,
-                            highlightIndices: errorIndices, // Выделяем ошибки красным
+                            highlightIndices: errorIndices, 
                             onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                         });
                         this.bitTapes.set('aliceErrorBits', aliceErrorTape);
@@ -1712,7 +1708,7 @@ class BB84Simulator {
                         this.stepBitTapes.get(8).push(aliceErrorTape);
                     }
                     
-                    // Лента битов Боба с выделением ошибок
+                    
                     const bobErrorContainer = errorContainer.querySelector('#bob-error-bits-tape-container');
                     if (bobErrorContainer) {
                         const bobErrorTape = new BitTape(bobErrorContainer, {
@@ -1720,7 +1716,7 @@ class BB84Simulator {
                             variant: 'classical',
                             bits: bobCheckBits,
                             shouldAnimate: false,
-                            highlightIndices: errorIndices, // Выделяем ошибки красным
+                            highlightIndices: errorIndices, 
                             onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                         });
                         this.bitTapes.set('bobErrorBits', bobErrorTape);
@@ -1737,7 +1733,7 @@ class BB84Simulator {
             return;
         }
         
-        // Вычисляем индексы совпадений (для зеленой подсветки)
+        
         const matchingIndices = [];
         for (let i = 0; i < checkIndices.length; i++) {
             if (aliceCheckBits[i].value === bobCheckBits[i].value) {
@@ -1745,8 +1741,8 @@ class BB84Simulator {
             }
         }
         
-        // Проверка пройдена - показываем зеленое окно
-        // Используем finalMaxEveCheckErrors, который уже был вычислен выше
+        
+        
         stepContainer.innerHTML = `
             <div class="step-content p-6 rounded-2xl bg-green-900/40 border border-green-600/50 backdrop-blur-sm">
                 <p class="text-green-300 text-lg font-semibold mb-2">✓ Проверка пройдена</p>
@@ -1766,7 +1762,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем ленты для визуализации проверки при успехе
+        
         const successContainer = stepContainer.querySelector('#success-comparison-container');
         if (successContainer) {
             setTimeout(() => {
@@ -1782,7 +1778,7 @@ class BB84Simulator {
                 `;
                 successContainer.innerHTML = successHTML;
                 
-                // Лента битов Алисы с выделением ошибок (красным) и совпадений (зеленым)
+                
                 const aliceSuccessContainer = successContainer.querySelector('#alice-success-bits-tape-container');
                 if (aliceSuccessContainer) {
                     const aliceSuccessTape = new BitTape(aliceSuccessContainer, {
@@ -1790,8 +1786,8 @@ class BB84Simulator {
                         variant: 'classical',
                         bits: aliceCheckBits,
                         shouldAnimate: false,
-                        highlightIndices: errorIndices, // Выделяем ошибки красным (несовпадения)
-                        matchIndices: matchingIndices, // Выделяем совпадения зеленым
+                        highlightIndices: errorIndices, 
+                        matchIndices: matchingIndices, 
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
                     this.bitTapes.set('aliceCheckBits', aliceSuccessTape);
@@ -1802,7 +1798,7 @@ class BB84Simulator {
                     this.stepBitTapes.get(8).push(aliceSuccessTape);
                 }
                 
-                // Лента битов Боба с выделением ошибок (красным) и совпадений (зеленым)
+                
                 const bobSuccessContainer = successContainer.querySelector('#bob-success-bits-tape-container');
                 if (bobSuccessContainer) {
                     const bobSuccessTape = new BitTape(bobSuccessContainer, {
@@ -1810,8 +1806,8 @@ class BB84Simulator {
                         variant: 'classical',
                         bits: bobCheckBits,
                         shouldAnimate: false,
-                        highlightIndices: errorIndices, // Выделяем ошибки красным (несовпадения)
-                        matchIndices: matchingIndices, // Выделяем совпадения зеленым
+                        highlightIndices: errorIndices, 
+                        matchIndices: matchingIndices, 
                         onElementClick: (elementData, event) => this.handleElementClick(elementData, event)
                     });
                     this.bitTapes.set('bobCheckBits', bobSuccessTape);
@@ -1824,11 +1820,11 @@ class BB84Simulator {
             }, 50);
         }
         
-        // Сохраняем оставшиеся биты для шага 9 (исключая проверенные)
-        // ВАЖНО: Сохраняем данные только если протокол не прерван
-        // Протокол прерывается только при превышении finalMaxEveCheckErrors (абсолютное количество ошибок)
+        
+        
+        
         if (errorCount <= finalMaxEveCheckErrors) {
-            // Исключаем проверенные биты из оставшихся
+            
             const remainingIndices = [];
             const checkIndicesSet = new Set(checkIndices);
             for (let i = 0; i < this.state.keptIndices.length; i++) {
@@ -1837,7 +1833,7 @@ class BB84Simulator {
                 }
             }
             
-            // Сохраняем биты для reconciliation
+            
             this.state.reconciliationIndices = remainingIndices;
             this.state.aliceReconciliationBits = remainingIndices.map(i => ({
                 value: this.state.aliceMatchingBits[i].value,
@@ -1848,11 +1844,11 @@ class BB84Simulator {
                 originalIndex: this.state.bobMatchingBits[i].originalIndex
             }));
             
-            // Сохраняем информацию об ошибках для использования в шаге 9
+            
             this.state.eveCheckErrorCount = errorCount;
             this.state.eveCheckLength = checkIndices.length;
             
-            // Отладочная информация
+            
             console.log('Step 8: Saved reconciliation data', {
                 remainingIndices: remainingIndices.length,
                 aliceBits: this.state.aliceReconciliationBits.length,
@@ -1864,7 +1860,7 @@ class BB84Simulator {
                 qber: checkIndices.length > 0 ? ((errorCount / checkIndices.length) * 100).toFixed(2) + '%' : '0%'
             });
         } else {
-            // Даже если протокол прерван, сохраняем информацию об ошибках для метрик QBER
+            
             this.state.eveCheckErrorCount = errorCount;
             this.state.eveCheckLength = checkIndices.length;
             console.log('Step 8: Protocol aborted, but saving QBER data', {
@@ -1877,54 +1873,54 @@ class BB84Simulator {
         this.saveState();
         this.addEvent(`Проверка на вмешательство Евы завершена. Проверено: ${checkIndices.length} битов. Ошибок: ${errorCount}.`, errorCount > finalMaxEveCheckErrors ? 'error' : 'info');
         
-        // ВАЖНО: Обновляем метрики после шага 8 (QBER теперь можно рассчитать)
-        // Это нужно делать даже если протокол прерван, чтобы показать QBER в метриках
+        
+        
         this.updateBottomPanel();
     }
     
     renderStep9() {
-        // Шаг 9 - Information Reconciliation (Информационная сверка) и Privacy Amplification (Усиление приватности)
-        // 
-        // ТЕОРИЯ:
-        // 
-        // 1. INFORMATION RECONCILIATION (Информационная сверка):
-        //    - Цель: Алиса и Боб должны получить одинаковые биты, исправив ошибки
-        //    - Метод: Бинарный поиск ошибок через паритеты блоков
-        //    - Процесс:
-        //      a) Делим биты на блоки
-        //      b) Вычисляем паритет каждого блока (XOR всех битов)
-        //      c) Публично обмениваемся паритетами
-        //      d) Если паритеты не совпадают, делим блок пополам и повторяем
-        //      e) Когда находим ошибочный бит, инвертируем его у Боба
-        //    - Утечка: каждый раскрытый паритет = 1 бит информации для Евы
-        //
-        // 2. PRIVACY AMPLIFICATION (Усиление приватности):
-        //    - Цель: Удалить информацию, которую могла узнать Ева
-        //    - Метод: Универсальное хэширование (Toeplitz-матрица)
-        //    - Формула длины финального ключа:
-        //      m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
-        //      где:
-        //      - n: длина ключа после reconciliation
-        //      - H_min(X|E): минимальная энтропия (≈ 1 - h(errorRate))
-        //      - leak_EC: утечка при Error Correction (количество паритетов)
-        //      - ε: параметр безопасности (обычно 0.01 = 1%)
-        //    - Результат: финальный безопасный ключ длины m
-        //
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const stepContainer = this.getOrCreateStepContainer(9);
         
-        // Очищаем контейнер перед рендерингом
+        
         stepContainer.innerHTML = '';
         
-        // Если данных нет, пытаемся восстановить их из keptIndices (если шаг 8 еще не выполнен)
+        
         if (!this.state.aliceReconciliationBits || this.state.aliceReconciliationBits.length === 0 ||
             !this.state.bobReconciliationBits || this.state.bobReconciliationBits.length === 0) {
             
-            // Если есть keptIndices, используем их (все биты, которые остались после шага 7)
+            
             if (this.state.keptIndices && this.state.keptIndices.length > 0 &&
                 this.state.aliceMatchingBits && this.state.aliceMatchingBits.length > 0 &&
                 this.state.bobMatchingBits && this.state.bobMatchingBits.length > 0) {
                 
-                // Если есть eveCheckIndices, исключаем их, иначе используем все keptIndices
+                
                 if (this.state.eveCheckIndices && this.state.eveCheckIndices.length > 0) {
                     const checkIndicesSet = new Set(this.state.eveCheckIndices);
                     const remainingIndices = [];
@@ -1943,7 +1939,7 @@ class BB84Simulator {
                         originalIndex: this.state.bobMatchingBits[i].originalIndex
                     }));
                 } else {
-                    // Используем все keptIndices
+                    
                     this.state.reconciliationIndices = Array.from({ length: this.state.keptIndices.length }, (_, i) => i);
                     this.state.aliceReconciliationBits = this.state.aliceMatchingBits.map(b => ({
                         value: b.value,
@@ -1956,7 +1952,7 @@ class BB84Simulator {
                 }
                 this.saveState();
             } else {
-                // Данных действительно нет
+                
                 stepContainer.innerHTML = `
                     <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
                         <p class="text-red-300 text-lg font-semibold mb-2">Ошибка</p>
@@ -1973,25 +1969,25 @@ class BB84Simulator {
         
         const n = (typeof panelState !== 'undefined' && panelState.config && panelState.config.n) ? panelState.config.n : 10;
         
-        // Выбор размера блока для Information Reconciliation
-        // Теория: размер блока должен быть оптимальным для баланса между:
-        // - Количеством утечки информации (меньше блоков = меньше утечка)
-        // - Эффективностью поиска ошибок (больше блоков = быстрее поиск)
-        // 
-        // Практические рекомендации:
-        // - Для малых ключей (< 100 бит): блоки по 10-20 бит
-        // - Для средних ключей (100-1000 бит): блоки по 20-50 бит
-        // - Для больших ключей (> 1000 бит): блоки по 50-100 бит
-        // 
-        // Используем адаптивный размер: минимум 10, максимум 100, примерно sqrt(n) или фиксированный размер
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         const keyLength = this.state.aliceReconciliationBits.length;
         let blockSize;
         if (keyLength < 50) {
-            blockSize = Math.max(5, Math.floor(keyLength / 3)); // Для малых ключей: ~1/3 длины
+            blockSize = Math.max(5, Math.floor(keyLength / 3)); 
         } else if (keyLength < 200) {
-            blockSize = 20; // Для средних ключей: фиксированный размер 20
+            blockSize = 20; 
         } else {
-            blockSize = Math.min(50, Math.max(20, Math.floor(Math.sqrt(keyLength)))); // Для больших: sqrt(n), но в разумных пределах
+            blockSize = Math.min(50, Math.max(20, Math.floor(Math.sqrt(keyLength)))); 
         }
         
         console.log('Information Reconciliation - выбор размера блока:', {
@@ -2001,15 +1997,15 @@ class BB84Simulator {
             expectedLeakage: Math.ceil(keyLength / blockSize) + ' битов (примерно)'
         });
         
-        // Information Reconciliation
-        // Если reconciliation еще не был выполнен, выполняем его
+        
+        
         if (!this.state.reconciledAliceBits || !this.state.reconciledBobBits || 
             this.state.reconciledAliceBits.length === 0 || this.state.reconciledBobBits.length === 0) {
-            // Копируем биты для reconciliation
+            
             let aliceBits = this.state.aliceReconciliationBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b);
             let bobBits = this.state.bobReconciliationBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b);
             
-            // Проверяем, что данные есть
+            
             if (aliceBits.length === 0 || bobBits.length === 0) {
                 stepContainer.innerHTML = `
                     <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
@@ -2022,20 +2018,20 @@ class BB84Simulator {
                 return;
             }
             
-            // Information Reconciliation (Информационная сверка)
-            // Цель: Алиса и Боб должны получить одинаковые биты, исправив ошибки
-            // 
-            // Алгоритм:
-            // 1. Делим биты на блоки
-            // 2. Для каждого блока вычисляем паритет (XOR всех битов)
-            // 3. Алиса и Боб публично обмениваются паритетами
-            // 4. Если паритеты не совпадают, используем бинарный поиск для нахождения ошибки
-            // 5. Исправляем ошибку (инвертируем бит Боба)
+            
+            
+            
+            
+            
+            
+            
+            
+            
             
             const numBlocks = Math.ceil(aliceBits.length / blockSize);
-            const parityRevealed = []; // Информация, раскрытая по открытому каналу (каждый паритет = 1 бит утечки)
+            const parityRevealed = []; 
             
-            // Рекурсивная функция для поиска и исправления ошибок в блоке
+            
             const correctErrorsInBlock = (blockStart, blockEnd) => {
                 if (blockStart >= blockEnd) return;
                 
@@ -2043,11 +2039,11 @@ class BB84Simulator {
                 const aliceBlock = aliceBits.slice(blockStart, blockEnd);
                 const bobBlock = bobBits.slice(blockStart, blockEnd);
                 
-                // Вычисляем паритет блока (XOR всех битов = сумма по модулю 2)
+                
                 const aliceParity = aliceBlock.reduce((sum, bit) => sum ^ bit, 0);
                 const bobParity = bobBlock.reduce((sum, bit) => sum ^ bit, 0);
                 
-                // Раскрываем паритет публично (1 бит утечки информации)
+                
                 parityRevealed.push({
                     blockIndex: blockStart,
                     start: blockStart,
@@ -2056,29 +2052,29 @@ class BB84Simulator {
                     bobParity: bobParity
                 });
                 
-                // Если паритеты не совпадают, есть ошибка(и) в блоке
+                
                 if (aliceParity !== bobParity) {
                     if (blockLength === 1) {
-                        // Блок из одного бита - это и есть ошибка
-                        bobBits[blockStart] = bobBits[blockStart] ^ 1; // Инвертируем бит Боба
+                        
+                        bobBits[blockStart] = bobBits[blockStart] ^ 1; 
                         return;
                     }
                     
-                    // Бинарный поиск: делим блок пополам и рекурсивно обрабатываем
+                    
                     const mid = blockStart + Math.floor(blockLength / 2);
                     correctErrorsInBlock(blockStart, mid);
                     correctErrorsInBlock(mid, blockEnd);
                 }
             };
             
-            // Обрабатываем все блоки
+            
             for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
                 const start = blockIdx * blockSize;
                 const end = Math.min(start + blockSize, aliceBits.length);
                 correctErrorsInBlock(start, end);
             }
             
-            // Проверяем, что после reconciliation биты совпадают
+            
             let errorsAfterReconciliation = 0;
             for (let i = 0; i < aliceBits.length; i++) {
                 if (aliceBits[i] !== bobBits[i]) {
@@ -2088,22 +2084,22 @@ class BB84Simulator {
             
             if (errorsAfterReconciliation > 0) {
                 console.warn(`После reconciliation осталось ${errorsAfterReconciliation} несовпадений`);
-                // Пытаемся исправить оставшиеся ошибки простым перебором
+                
                 for (let i = 0; i < aliceBits.length; i++) {
                     if (aliceBits[i] !== bobBits[i]) {
-                        bobBits[i] = aliceBits[i]; // Просто копируем бит Алисы
+                        bobBits[i] = aliceBits[i]; 
                     }
                 }
             }
             
-            // Сохраняем результаты reconciliation (гарантируем, что это массив чисел)
+            
             this.state.reconciledAliceBits = aliceBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b)));
             this.state.reconciledBobBits = bobBits.map(b => typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b)));
             this.state.parityRevealed = parityRevealed;
             this.saveState();
         }
         
-        // Гарантируем, что reconciled bits - это массив чисел
+        
         const reconciledAlice = (this.state.reconciledAliceBits || []).map(b => 
             typeof b === 'object' && b !== null && b.value !== undefined ? b.value : (b === true ? 1 : (b === false ? 0 : b))
         );
@@ -2112,7 +2108,7 @@ class BB84Simulator {
         );
         const parityRevealed = this.state.parityRevealed || [];
         
-        // Проверяем, что reconciliation был выполнен успешно
+        
         if (reconciledAlice.length === 0 || reconciledBob.length === 0) {
             stepContainer.innerHTML = `
                 <div class="step-content p-6 rounded-2xl bg-red-900/40 border border-red-600/50 backdrop-blur-sm">
@@ -2126,10 +2122,10 @@ class BB84Simulator {
             return;
         }
         
-        // Privacy Amplification
-        // Если amplification еще не был выполнен, выполняем его
+        
+        
         if (!this.state.finalKey || this.state.finalKey.length === 0) {
-            // n - длина ключа после reconciliation (raw key length)
+            
             const n = reconciledAlice.length;
             
             if (n === 0) {
@@ -2143,21 +2139,21 @@ class BB84Simulator {
                 return;
             }
             
-            // УПРОЩЕННАЯ ФОРМУЛА для практической реализации:
-            // m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
-            // 
-            // Теория:
-            // 1. H_min(X|E) - минимальная энтропия (сколько информации осталось после утечки к Еве)
-            // 2. leak_EC - утечка при Error Correction (сколько битов мы раскрыли публично)
-            // 3. 2*log(1/ε) - запас безопасности (ε = 0.01 означает 1% вероятность ошибки)
             
-            // 1. Утечка при Error Correction (leak_EC)
-            // Каждый раскрытый паритет = 1 бит утечки
-            // В рекурсивном алгоритме reconciliation каждый блок может раскрывать несколько паритетов
-            // при делении пополам, поэтому считаем все раскрытые паритеты
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             const leakEC = this.state.parityRevealed ? this.state.parityRevealed.length : 0;
             
-            // Дополнительная проверка: если leakEC слишком большой относительно n, это проблема
+            
             if (leakEC > n * 0.5) {
                 console.warn('Предупреждение: утечка при Error Correction слишком большая:', {
                     leakEC: leakEC,
@@ -2166,21 +2162,21 @@ class BB84Simulator {
                 });
             }
             
-            // 2. Оценка минимальной энтропии H_min(X|E)
-            // Используем QBER (Quantum Bit Error Rate) из метрик или реальную частоту ошибок из шага 8
-            let errorRate = 0.01; // По умолчанию 1% (консервативная оценка)
+            
+            
+            let errorRate = 0.01; 
             if (this.state.eveCheckLength > 0 && this.state.eveCheckErrorCount !== undefined) {
-                // Используем реальный QBER из шага 8
+                
                 errorRate = this.state.eveCheckErrorCount / this.state.eveCheckLength;
             } else {
-                // Fallback: пытаемся получить QBER из метрик
+                
                 const metrics = this.getMetrics();
                 if (metrics.qber > 0) {
-                    errorRate = metrics.qber / 100; // QBER в процентах, переводим в долю
+                    errorRate = metrics.qber / 100; 
                 }
             }
-            // Ограничиваем разумными пределами [0.001, 0.2]
-            // QBER обычно < 11% для BB84, но для безопасности ограничиваем до 20%
+            
+            
             errorRate = Math.max(0.001, Math.min(0.2, errorRate));
             
             console.log('Privacy Amplification - используемый QBER:', {
@@ -2189,21 +2185,21 @@ class BB84Simulator {
                 source: this.state.eveCheckLength > 0 ? 'шаг 8' : 'метрики/по умолчанию'
             });
             
-            // Бинарная энтропия Шеннона: h(p) = -p*log2(p) - (1-p)*log2(1-p)
+            
             const binaryEntropy = (p) => {
                 if (p <= 0 || p >= 1) return 0;
                 return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
             };
             
-            // H_min(X|E) ≈ 1 - h(errorRate)
-            // Это оценка того, сколько энтропии осталось после того, как Ева могла узнать часть информации
+            
+            
             const hMin = Math.max(0.5, 1 - binaryEntropy(errorRate));
             
-            // 3. Параметр безопасности
-            const securityParameter = 0.01; // ε = 0.01 (1% вероятность ошибки)
-            const securityTerm = 2 * Math.log2(1 / securityParameter); // ≈ 13.29 битов
             
-            // 4. Расчёт длины финального ключа: m = n * H_min(X|E) - leak_EC - 2*log(1/ε)
+            const securityParameter = 0.01; 
+            const securityTerm = 2 * Math.log2(1 / securityParameter); 
+            
+            
             let m = Math.floor(n * hMin - leakEC - securityTerm);
             
             console.log('Privacy Amplification - расчёт (до проверок):', {
@@ -2216,23 +2212,23 @@ class BB84Simulator {
                 calculatedM: m
             });
             
-            // 5. Гарантируем разумное значение m
-            // m должно быть: 1 <= m < n
-            // Если расчёт дал отрицательное или слишком большое значение, используем упрощённую оценку
+            
+            
+            
             if (m <= 0 || m >= n || !Number.isFinite(m)) {
                 console.warn('Расчёт дал невалидное m, используем упрощённую оценку:', m);
-                // Упрощённая оценка: m = n * (1 - errorRate) - leakEC - 10
-                // Это гарантирует, что мы учитываем ошибки и утечку, но не переусложняем
+                
+                
                 m = Math.floor(n * (1 - errorRate) - leakEC - 10);
                 
-                // Если всё ещё невалидно, используем консервативную оценку
+                
                 if (m <= 0 || m >= n) {
-                    // Консервативная оценка: оставляем 60-70% от исходной длины
+                    
                     m = Math.max(1, Math.min(n - 1, Math.floor(n * 0.65)));
                 }
             }
             
-            // Финальная проверка: гарантируем валидность m
+            
             m = Math.max(1, Math.min(n - 1, m));
             
             console.log('Privacy Amplification - финальный результат:', {
@@ -2244,12 +2240,12 @@ class BB84Simulator {
                 hMin: hMin.toFixed(4)
             });
             
-            // Генерируем случайный seed для хэш-функции (публично объявляется)
+            
             if (!this.state.hashSeed) {
                 this.state.hashSeed = Math.floor(Math.random() * 0xFFFFFFFF);
             }
             
-            // Отладочная информация: проверяем распределение битов во входном ключе
+            
             const onesCount = reconciledAlice.filter(b => b === 1).length;
             const zerosCount = reconciledAlice.length - onesCount;
             const onesRatio = (onesCount / reconciledAlice.length * 100).toFixed(1);
@@ -2263,8 +2259,8 @@ class BB84Simulator {
                 sample: reconciledAlice.slice(0, Math.min(50, reconciledAlice.length))
             });
             
-            // Применяем универсальную хэш-функцию для privacy amplification
-            // Важно: передаём массив чисел, не объекты
+            
+            
             const reconciledAliceNumbers = reconciledAlice.map(b => {
                 const val = typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b;
                 return val === true ? 1 : (val === false ? 0 : val);
@@ -2298,7 +2294,7 @@ class BB84Simulator {
                 return;
             }
             
-            // Отладочная информация: проверяем распределение битов в финальном ключе
+            
             const finalOnesCount = finalKey.filter(b => b === 1).length;
             const finalZerosCount = finalKey.length - finalOnesCount;
             const finalOnesRatio = (finalOnesCount / finalKey.length * 100).toFixed(1);
@@ -2312,7 +2308,7 @@ class BB84Simulator {
                 hex: this.bitsToHex(finalKey)
             });
             
-            // Предупреждение, если распределение слишком неравномерное
+            
             if (finalOnesRatio < 20 || finalOnesRatio > 80) {
                 console.warn('Предупреждение: финальный ключ имеет неравномерное распределение битов:', {
                     onesRatio: finalOnesRatio + '%',
@@ -2321,7 +2317,7 @@ class BB84Simulator {
                 });
             }
             
-            // Проверяем, что Боб получил тот же ключ
+            
             const bobFinalKey = this.privacyAmplification(reconciledBob, m, this.state.hashSeed);
             
             if (finalKey.length !== bobFinalKey.length || finalKey.join('') !== bobFinalKey.join('')) {
@@ -2333,7 +2329,7 @@ class BB84Simulator {
             this.state.finalKeyLength = m;
             this.saveState();
             
-            // Обновляем метрики после создания финального ключа
+            
             this.updateBottomPanel();
         }
         
@@ -2353,7 +2349,7 @@ class BB84Simulator {
             </div>
         `;
         
-        // Создаем визуализацию reconciliation
+        
         const reconciliationContainer = stepContainer.querySelector('#reconciliation-container');
         if (reconciliationContainer) {
             setTimeout(() => {
@@ -2373,10 +2369,10 @@ class BB84Simulator {
                     </div>
                 `;
                 
-                // Лента битов Алисы после reconciliation
+                
                 const aliceReconciledContainer = reconciliationContainer.querySelector('#alice-reconciled-tape-container');
                 if (aliceReconciledContainer) {
-                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    
                     const aliceReconciledBits = reconciledAlice.map((bit, idx) => ({
                         value: bit,
                         originalIndex: idx
@@ -2396,10 +2392,10 @@ class BB84Simulator {
                     this.stepBitTapes.get(9).push(aliceReconciledTape);
                 }
                 
-                // Лента битов Боба после reconciliation
+                
                 const bobReconciledContainer = reconciliationContainer.querySelector('#bob-reconciled-tape-container');
                 if (bobReconciledContainer) {
-                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    
                     const bobReconciledBits = reconciledBob.map((bit, idx) => ({
                         value: bit,
                         originalIndex: idx
@@ -2421,13 +2417,13 @@ class BB84Simulator {
             }, 50);
         }
         
-        // Создаем визуализацию privacy amplification
+        
         const amplificationContainer = stepContainer.querySelector('#amplification-container');
         if (amplificationContainer) {
             setTimeout(() => {
                 const finalKeyHex = this.bitsToHex(this.state.finalKey);
                 
-                // Подсчитываем распределение битов для информации
+                
                 const finalOnes = this.state.finalKey.filter(b => {
                     const val = typeof b === 'object' && b !== null && b.value !== undefined ? b.value : b;
                     return val === 1;
@@ -2452,10 +2448,10 @@ class BB84Simulator {
                     </div>
                 `;
                 
-                // Лента финального ключа
+                
                 const finalKeyContainer = amplificationContainer.querySelector('#final-key-tape-container');
                 if (finalKeyContainer) {
-                    // Преобразуем в формат для BitTape (массив объектов с value)
+                    
                     const finalKeyBits = this.state.finalKey.map((bit, idx) => ({
                         value: bit,
                         originalIndex: idx
@@ -2481,24 +2477,24 @@ class BB84Simulator {
         this.addEvent(`Сверка информации и усиление приватности завершены. Финальный ключ: ${this.state.finalKeyLength} битов.`, 'info');
     }
     
-    // Вспомогательная функция для поиска ошибки в блоке (бинарный поиск)
-    // Эта функция больше не используется, так как мы используем рекурсивный подход в correctErrorsInBlock
-    // Оставляем для обратной совместимости
+    
+    
+    
     findErrorInBlock(aliceBlock, bobBlock) {
-        // Упрощенный алгоритм - просто находим первый несовпадающий бит
+        
         for (let i = 0; i < aliceBlock.length; i++) {
             if (aliceBlock[i] !== bobBlock[i]) {
                 return i;
             }
         }
-        return -1; // Ошибка не найдена (паритеты совпали, но биты различаются)
+        return -1; 
     }
     
-    // Простая функция privacy amplification с использованием XOR-подхода
-    // Как в старой версии: распределяем биты по "корзинам" и делаем XOR
-    // Это упрощённый подход для симуляции, но работает надёжно
+    
+    
+    
     privacyAmplification(rawKey, outputLength, seed) {
-        // Нормализуем rawKey: извлекаем числовые значения, если это объекты
+        
         const normalizedKey = rawKey.map(bit => {
             if (typeof bit === 'object' && bit !== null && bit.value !== undefined) {
                 return bit.value;
@@ -2517,20 +2513,20 @@ class BB84Simulator {
             return [];
         }
         
-        // Простой подход: распределяем биты по "корзинам" (buckets) и делаем XOR
-        // Это эквивалентно простому хэшированию через XOR
+        
+        
         const length = Math.max(1, Math.min(outputLength, keyLength));
         const result = new Array(length).fill(0);
         
-        // Распределяем каждый бит входного ключа в соответствующую "корзину"
-        // и делаем XOR со значением в корзине
+        
+        
         for (let i = 0; i < keyLength; i++) {
             const bucket = i % length;
             const bit = normalizedKey[i];
-            result[bucket] ^= bit; // XOR над GF(2)
+            result[bucket] ^= bit; 
         }
         
-        // Проверяем результат
+        
         const onesInKey = normalizedKey.filter(b => b === 1).length;
         const onesInResult = result.filter(b => b === 1).length;
         
@@ -2547,13 +2543,13 @@ class BB84Simulator {
         return result;
     }
     
-    // Преобразование битового массива в hex строку
+    
     bitsToHex(bits) {
         if (!bits || bits.length === 0) {
             return '0';
         }
         
-        // Нормализуем биты
+        
         const normalizedBits = bits.map(bit => {
             if (typeof bit === 'object' && bit !== null && bit.value !== undefined) {
                 return bit.value;
@@ -2561,28 +2557,28 @@ class BB84Simulator {
             return bit === true ? 1 : (bit === false ? 0 : bit);
         });
         
-        // Преобразуем биты в байты (группы по 8 бит)
+        
         let hexString = '';
         for (let i = 0; i < normalizedBits.length; i += 8) {
             let byte = 0;
             const bitsInThisByte = Math.min(8, normalizedBits.length - i);
             
-            // Собираем байт из 8 битов (или меньше в конце)
-            // ВАЖНО: Биты добавляются слева направо, нули уже находятся слева (в старших разрядах)
-            // НЕ нужно сдвигать влево для неполных байтов - это добавит нули справа (в младших разрядах), что неправильно!
+            
+            
+            
             for (let j = 0; j < bitsInThisByte; j++) {
                 byte = (byte << 1) | (normalizedBits[i + j] & 1);
             }
             
-            // НЕ сдвигаем неполные байты влево - нули уже находятся слева (в старших разрядах)
-            // Например: 6 битов `010001` = 17 (десятичное) = `11` (hex), а не `44` (hex)
             
-            // Преобразуем байт в hex (два символа)
+            
+            
+            
             const hexByte = byte.toString(16).toUpperCase().padStart(2, '0');
             hexString += hexByte;
         }
         
-        // Возвращаем hex строку без префикса 0x и без пробелов (просто hex символы)
+        
         return hexString;
     }
     
@@ -2591,7 +2587,7 @@ class BB84Simulator {
             const container = document.createElement('div');
             container.className = `step-container step-${stepNumber} mb-6`;
             container.id = `step-${stepNumber}`;
-            container.style.display = 'none'; // Изначально скрыт
+            container.style.display = 'none'; 
             this.container.appendChild(container);
             this.stepContainers.set(stepNumber, container);
         }
@@ -2603,19 +2599,19 @@ class BB84Simulator {
     }
     
     generateRandomBases(n) {
-        // Генерируем случайные базисы: true -> 'Z', false -> 'X'
+        
         return Array.from({ length: n }, () => Math.random() < 0.5);
     }
     
     convertBasesToDisplay(bases) {
-        // Конвертируем boolean массив в массив строк для отображения
-        // true -> 'Z', false -> 'X'
+        
+        
         return bases.map(basis => basis ? 'Z' : 'X');
     }
     
     encodeQubits(bits, bases) {
-        // Кодируем биты в кубиты согласно базисам
-        // bases[i] == false -> X базис, bases[i] == true -> Z базис
+        
+        
         const sqrtTwo = Math.sqrt(2);
         const oneOverSqrtTwo = 1 / sqrtTwo;
         
@@ -2625,34 +2621,34 @@ class BB84Simulator {
             let symbol;
             
             if (!basis) {
-                // X базис
+                
                 if (!bit) {
-                    // |+> = 1/√2 |0> + 1/√2 |1>
+                    
                     alpha = { real: oneOverSqrtTwo, imag: 0 };
                     beta = { real: oneOverSqrtTwo, imag: 0 };
                     symbol = '|+⟩';
                 } else {
-                    // |-> = 1/√2 |0> - 1/√2 |1>
+                    
                     alpha = { real: oneOverSqrtTwo, imag: 0 };
                     beta = { real: -oneOverSqrtTwo, imag: 0 };
                     symbol = '|−⟩';
                 }
             } else {
-                // Z базис
+                
                 if (!bit) {
-                    // |0> = 1|0> + 0|1>
+                    
                     alpha = { real: 1, imag: 0 };
                     beta = { real: 0, imag: 0 };
                     symbol = '|0⟩';
                 } else {
-                    // |1> = 0|0> + 1|1>
+                    
                     alpha = { real: 0, imag: 0 };
                     beta = { real: 1, imag: 0 };
                     symbol = '|1⟩';
                 }
             }
             
-            // Вычисляем вероятности
+            
             const prob0 = alpha.real * alpha.real + alpha.imag * alpha.imag;
             const prob1 = beta.real * beta.real + beta.imag * beta.imag;
             
@@ -2675,7 +2671,7 @@ class BB84Simulator {
             return;
         }
         
-        // Скрываем мгновенно без анимации, чтобы не влиять на layout
+        
         container.style.display = 'none';
         container.style.visibility = 'hidden';
         container.classList.remove('showing', 'hiding');
@@ -2687,27 +2683,27 @@ class BB84Simulator {
         const container = this.stepContainers.get(stepNumber);
         if (!container) return;
         
-        // Показываем элемент - анимация битов происходит внутри BitTape
+        
         container.style.display = 'block';
         container.style.visibility = 'visible';
         container.style.height = 'auto';
         container.style.minHeight = '';
         container.classList.remove('hiding', 'showing');
         
-        // Ждем полной отрисовки контейнера перед обновлением Swiper
-        // Используем несколько requestAnimationFrame для гарантии отрисовки
+        
+        
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                // Принудительно заставляем браузер пересчитать layout
+                
                 void container.offsetHeight;
                 
                 setTimeout(() => {
-                    // Обновляем Swiper для всех лент в этом шаге
+                    
                     const bitTapesForStep = this.stepBitTapes.get(stepNumber);
                     if (bitTapesForStep) {
                         bitTapesForStep.forEach(bitTape => {
                             if (bitTape) {
-                                // Принудительно пересчитываем размеры перед обновлением
+                                
                                 if (bitTape.container) {
                                     const tapeContainer = bitTape.container.closest('.bit-tape');
                                     if (tapeContainer) {
@@ -2716,14 +2712,14 @@ class BB84Simulator {
                                     }
                                 }
                                 
-                                // Обновляем Swiper
+                                
                                 if (typeof bitTape.updateSwiper === 'function') {
                                     bitTape.updateSwiper();
                                 }
                             }
                         });
                         
-                        // Дополнительное обновление через еще одну задержку для надежности
+                        
                         setTimeout(() => {
                             bitTapesForStep.forEach(bitTape => {
                                 if (bitTape && typeof bitTape.updateSwiper === 'function') {
@@ -2735,7 +2731,7 @@ class BB84Simulator {
                             });
                         }, 300);
                     }
-                }, 300); // Увеличиваем задержку для надежности
+                }, 300); 
             });
         });
     }
@@ -2745,46 +2741,46 @@ class BB84Simulator {
             return;
         }
         
-        // Сохраняем текущее состояние в историю перед переходом
+        
         this.saveStepToHistory(this.currentStep);
         
-        // Определяем, какие шаги нужно скрыть
+        
         const stepsToHide = [];
         for (let i = stepNumber + 1; i < this.steps.length; i++) {
             stepsToHide.push(i);
         }
         
-        // На шагах 4, 5 и 6 скрываем все предыдущие шаги
+        
         if (stepNumber === 4) {
             stepsToHide.push(0, 1, 2, 3);
         } else if (stepNumber === 5) {
             stepsToHide.push(0, 1, 2, 3, 4);
         } else if (stepNumber === 6) {
-            // На шаге 6 не скрываем шаг 5 - показываем оба
+            
             stepsToHide.push(0, 1, 2, 3, 4);
         } else if (stepNumber === 7) {
-            // На шаге 7 скрываем все предыдущие шаги
+            
             stepsToHide.push(0, 1, 2, 3, 4, 5, 6);
         } else if (stepNumber === 8) {
-            // На шаге 8 скрываем все предыдущие шаги
+            
             stepsToHide.push(0, 1, 2, 3, 4, 5, 6, 7);
         } else if (stepNumber === 9) {
-            // На шаге 9 скрываем все предыдущие шаги, включая шаг 8
+            
             stepsToHide.push(0, 1, 2, 3, 4, 5, 6, 7, 8);
-            // Очищаем контейнер шага 8
+            
             const step8Container = this.stepContainers.get(8);
             if (step8Container) {
                 step8Container.innerHTML = '';
             }
         } else if (stepNumber > 0) {
-            // Скрываем шаг 0, если мы не на шаге 0
+            
             stepsToHide.push(0);
         }
         
-        // Проверяем, находится ли выбранный элемент в скрываемом шаге
+        
         if (this.selectedElement && this.selectedElementStep !== null) {
             if (stepsToHide.includes(this.selectedElementStep)) {
-                // Не очищаем выбор, если переходим на шаг, где элемент снова будет виден
+                
                 const willBeVisible = (stepNumber === 6 && (this.selectedElementStep === 5 || this.selectedElementStep === 6)) ||
                                      (stepNumber === 5 && this.selectedElementStep === 5) ||
                                      (stepNumber === this.selectedElementStep);
@@ -2795,39 +2791,39 @@ class BB84Simulator {
             }
         }
         
-        // Очищаем панель деталей и выбор кубитов Евы при уходе с шага 4
+        
         if (this.currentStep === 4 && stepNumber !== 4) {
-            // Очищаем множественный выбор для шага 4
+            
             this.selectedIndices = [];
             this.lastSelectedIndex = null;
             
-            // Очищаем панель деталей
+            
             if (this.qubitDetails) {
                 this.qubitDetails.setSelectedElement(null);
             }
             
-            // Очищаем выбор в ленте кубитов Евы
+            
             const eveTape = this.bitTapes.get('eveQubits');
             if (eveTape) {
                 eveTape.clearSelection();
             }
         }
         
-        // Очищаем панель деталей при уходе с шага 5
+        
         if (this.currentStep === 5 && stepNumber !== 5) {
-            // Очищаем панель деталей
+            
             if (this.qubitDetails) {
                 this.qubitDetails.setSelectedElement(null);
             }
             
-            // Очищаем выбор в ленте кубитов Боба
+            
             const bobTape = this.bitTapes.get('bobQubits');
             if (bobTape) {
                 bobTape.clearSelection();
             }
         }
         
-        // Очищаем панель деталей при уходе с шага 6 на шаг, где шаг 6 скрывается
+        
         if (this.currentStep === 6 && stepNumber !== 6 && stepNumber !== 5) {
             if (this.qubitDetails) {
                 this.qubitDetails.setSelectedElement(null);
@@ -2847,10 +2843,10 @@ class BB84Simulator {
             }
         }
         
-        // Обновляем заголовок шага
+        
         this.updateStepHeader(stepNumber);
         
-        // Скрываем шаги с анимацией
+        
         if (stepsToHide.length > 0) {
             let hiddenCount = 0;
             const totalToHide = stepsToHide.length;
@@ -2858,41 +2854,41 @@ class BB84Simulator {
             stepsToHide.forEach(stepNum => {
                 this.hideStepWithAnimation(stepNum, () => {
                     hiddenCount++;
-                    // Когда все шаги скрыты, показываем нужные
+                    
                     if (hiddenCount === totalToHide) {
                         this.showStepsForStep(stepNumber);
                     }
                 });
             });
         } else {
-            // Если нечего скрывать, сразу показываем нужные шаги
+            
             this.showStepsForStep(stepNumber);
         }
     }
     
     showStepsForStep(stepNumber) {
-        // Восстанавливаем состояние для целевого шага, если оно есть в истории
-        // Для шага 5 не восстанавливаем из истории, так как он должен показывать актуальные кубиты после всех атак
+        
+        
         if (this.stepHistory[stepNumber] && stepNumber !== 5) {
             this.state = JSON.parse(JSON.stringify(this.stepHistory[stepNumber]));
         }
         
-        // Рендерим и показываем нужные шаги
-        // На шагах 4 и 5 показываем только соответствующий шаг
-        // На шаге 6 показываем шаги 5 и 6 вместе
+        
+        
+        
         let stepsToShow = [];
         if (stepNumber === 4 || stepNumber === 5) {
             stepsToShow = [stepNumber];
         } else if (stepNumber === 6) {
-            // На шаге 6 показываем шаги 5 и 6 вместе
+            
             stepsToShow = [5, 6];
         } else if (stepNumber === 7 || stepNumber === 8 || stepNumber === 9) {
-            // На шагах 7, 8 и 9 показываем только текущий шаг
+            
             stepsToShow = [stepNumber];
         } else {
             for (let i = 0; i <= stepNumber; i++) {
                 if (this.steps[i]) {
-                    // Пропускаем шаг 0, если мы не на шаге 0
+                    
                     if (i === 0 && stepNumber > 0) {
                         continue;
                     }
@@ -2904,14 +2900,14 @@ class BB84Simulator {
         stepsToShow.forEach(i => {
             if (this.steps[i]) {
                 
-                // Для шагов 7, 8, 9 всегда перерендериваем, чтобы показать актуальные данные
-                // Также перерендериваем шаг 6 при переходе на него, чтобы восстановить выбранные элементы
+                
+                
                 if (!this.renderedSteps.has(i) || i === 7 || i === 8 || i === 9 || (i === 6 && stepNumber === 6)) {
-                    // Рендерим шаг
+                    
                     this.steps[i].render();
                     this.renderedSteps.add(i);
                     
-                    // Для шага 5 обновляем данные после рендера (на случай, если данные изменились)
+                    
                     if (i === 5 && this.state.channelQubits && this.state.channelQubits.length > 0) {
                         setTimeout(() => {
                             const bobTape = this.bitTapes.get('bobQubits');
@@ -2932,12 +2928,12 @@ class BB84Simulator {
                         }, 100);
                     }
                     
-                    // Показываем с анимацией после рендера
+                    
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
                             this.showStepWithAnimation(i);
                             
-                            // Обновляем Swiper для всех битных лент в этом шаге
+                            
                             setTimeout(() => {
                                 const bitTapesForStep = this.stepBitTapes.get(i);
                                 if (bitTapesForStep) {
@@ -2947,15 +2943,15 @@ class BB84Simulator {
                                         }
                                     });
                                 }
-                            }, 200); // Увеличиваем задержку для надежности
+                            }, 200); 
                         });
                     });
                 } else {
-                    // Для шага 5 всегда обновляем данные кубитов Боба перед показом
+                    
                     if (i === 5 && this.state.channelQubits && this.state.channelQubits.length > 0) {
                         const bobTape = this.bitTapes.get('bobQubits');
                         if (bobTape) {
-                            // Обновляем кубиты для отображения Бобу
+                            
                             const bobQubits = this.state.channelQubits.map((qubit, index) => {
                                 return {
                                     index: index,
@@ -2971,10 +2967,10 @@ class BB84Simulator {
                         }
                     }
                     
-                    // Показываем уже отрендеренный шаг с анимацией
+                    
                     this.showStepWithAnimation(i);
                     
-                    // Swiper обновится внутри showStepWithAnimation
+                    
                 }
             }
         });
@@ -2982,19 +2978,19 @@ class BB84Simulator {
         this.currentStep = stepNumber;
         this.saveState();
         this.updateStepIndicator();
-        // Обновляем метрики при переходе между шагами
+        
         this.updateBottomPanel();
     }
     
     saveStepToHistory(stepNumber) {
-        // Сохраняем копию состояния для этого шага
+        
         if (!this.stepHistory[stepNumber]) {
             this.stepHistory[stepNumber] = JSON.parse(JSON.stringify(this.state));
         }
     }
     
     nextStep() {
-        // Блокируем переход к следующему шагу, если протокол прерван
+        
         if (this.state.isProtocolAborted) {
             this.addEvent('Невозможно перейти к следующему шагу: протокол прерван. Пожалуйста, начните симуляцию заново.', 'error');
             return;
@@ -3038,24 +3034,24 @@ class BB84Simulator {
             eveCheckLength: 0,
             isProtocolAborted: false
         };
-        this.stepHistory = []; // Очищаем историю
+        this.stepHistory = []; 
         
-        // Очищаем множественный выбор
+        
         this.selectedIndices = [];
         this.lastSelectedIndex = null;
         
-        // Удаляем уведомление о прерывании протокола, если оно есть
+        
         const notification = document.querySelector('.protocol-aborted-notification');
         if (notification) {
             notification.remove();
         }
         
-        // Очищаем все контейнеры
+        
         this.stepContainers.forEach(container => container.remove());
         this.stepContainers.clear();
         this.bitTapes.clear();
-        this.stepBitTapes.clear(); // Очищаем ссылки на BitTape по шагам
-        this.renderedSteps.clear(); // Очищаем список отрендеренных шагов
+        this.stepBitTapes.clear(); 
+        this.renderedSteps.clear(); 
         
         this.saveState();
         this.goToStep(0);
@@ -3064,7 +3060,7 @@ class BB84Simulator {
     startAutoPlay() {
         if (this.isRunning) return;
         
-        // Блокируем автоплей, если протокол прерван
+        
         if (this.state.isProtocolAborted) {
             this.addEvent('Невозможно запустить автоплей: протокол прерван. Пожалуйста, начните симуляцию заново.', 'error');
             return;
@@ -3110,20 +3106,20 @@ class BB84Simulator {
     }
     
     updateStepIndicator() {
-        // Обновляем индикатор шага в панели управления
+        
         if (typeof updateConnectionStatusDisplay === 'function') {
             updateConnectionStatusDisplay();
         }
     }
     
     saveState() {
-        // Сохраняем текущее состояние в историю
+        
         this.saveStepToHistory(this.currentStep);
         
         const stateToSave = {
             currentStep: this.currentStep,
             state: this.state,
-            stepHistory: this.stepHistory, // Сохраняем всю историю
+            stepHistory: this.stepHistory, 
             config: (typeof panelState !== 'undefined' && panelState.config) ? panelState.config : {}
         };
         localStorage.setItem('bb84_simulation_state', JSON.stringify(stateToSave));
@@ -3136,7 +3132,7 @@ class BB84Simulator {
                 const parsed = JSON.parse(saved);
                 this.currentStep = parsed.currentStep || 0;
                 
-                // Инициализируем состояние с дефолтными значениями
+                
                 const defaultState = {
                     aliceBits: [],
                     aliceBases: [],
@@ -3147,13 +3143,13 @@ class BB84Simulator {
                     bobBits: []
                 };
                 
-                // Объединяем сохраненное состояние с дефолтным, чтобы гарантировать наличие всех полей
+                
                 this.state = parsed.state ? {
                     ...defaultState,
                     ...parsed.state
                 } : defaultState;
                 
-                // Убеждаемся, что массивы всегда массивы, а объекты - объекты
+                
                 if (!Array.isArray(this.state.aliceQubits)) {
                     this.state.aliceQubits = [];
                 }
@@ -3164,19 +3160,19 @@ class BB84Simulator {
                     this.state.eveAttacks = {};
                 }
                 
-                // Восстанавливаем историю шагов, если она есть
+                
                 if (parsed.stepHistory && Array.isArray(parsed.stepHistory)) {
                     this.stepHistory = parsed.stepHistory.map(step => JSON.parse(JSON.stringify(step)));
                 } else {
                     this.stepHistory = [];
                 }
                 
-                // Восстанавливаем конфигурацию, если она есть
+                
                 if (parsed.config && typeof panelState !== 'undefined' && panelState.config) {
                     Object.assign(panelState.config, parsed.config);
                 }
                 
-                // Проверяем, был ли протокол прерван, и показываем уведомление
+                
                 if (this.state.isProtocolAborted) {
                     let message = '';
                     if (this.currentStep === 7) {
@@ -3199,7 +3195,7 @@ class BB84Simulator {
     }
     
     exportState() {
-        // Сохраняем текущее состояние в историю перед экспортом
+        
         this.saveStepToHistory(this.currentStep);
         
         const exportData = {
@@ -3207,7 +3203,7 @@ class BB84Simulator {
             timestamp: new Date().toISOString(),
             currentStep: this.currentStep,
             state: this.state,
-            stepHistory: this.stepHistory, // Экспортируем всю историю
+            stepHistory: this.stepHistory, 
             config: (typeof panelState !== 'undefined' && panelState.config) ? panelState.config : {}
         };
         
@@ -3224,7 +3220,7 @@ class BB84Simulator {
                 bobBits: []
             };
             
-            // Восстанавливаем историю шагов, если она есть
+            
             if (data.stepHistory && Array.isArray(data.stepHistory)) {
                 this.stepHistory = data.stepHistory.map(step => JSON.parse(JSON.stringify(step)));
             } else {
@@ -3235,21 +3231,21 @@ class BB84Simulator {
                 Object.assign(panelState.config, data.config);
             }
             
-            // Очищаем контейнеры и перерисовываем
+            
             this.stepContainers.forEach(container => container.remove());
             this.stepContainers.clear();
             this.bitTapes.clear();
             this.renderedSteps.clear();
             
-            // Восстанавливаем состояние для текущего шага из истории, если есть
+            
             if (this.stepHistory[this.currentStep]) {
                 this.state = JSON.parse(JSON.stringify(this.stepHistory[this.currentStep]));
             }
             
-            // Обновляем заголовок перед переходом
+            
             this.updateStepHeader(this.currentStep);
             
-            // Проверяем, был ли протокол прерван, и показываем уведомление
+            
             if (this.state.isProtocolAborted) {
                 let message = '';
                 if (this.currentStep === 7) {
@@ -3276,7 +3272,7 @@ class BB84Simulator {
         }
     }
     
-    // Проверка, можно ли применить изменение конфигурации
+    
     canApplyConfigChange(key, oldValue, newValue) {
         if (this.currentStep < 1) {
             return true;
@@ -3285,22 +3281,22 @@ class BB84Simulator {
         return false;
     }
     
-    // Применение изменения конфигурации
+    
     applyConfigChange(key, value) {
         if (key === 'n') {
-            // Если n изменилось и мы на шаге 0, это нормально
+            
             if (this.currentStep < 1) {
-                // Применяем изменение, биты будут сгенерированы с новым n на шаге 1
+                
                 return;
             }
         }
         
-        // Перерисовываем текущий шаг, если нужно
+        
         if (this.currentStep >= 1 && key === 'n') {
-            // Если n изменилось, нужно перегенерировать биты
+            
             const n = value;
             this.state.aliceBits = this.generateRandomBits(n);
-            // Обновляем все шаги до текущего
+            
             for (let i = 0; i <= this.currentStep; i++) {
                 if (this.steps[i]) {
                     this.steps[i].render();

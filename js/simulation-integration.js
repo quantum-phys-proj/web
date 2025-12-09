@@ -1,63 +1,60 @@
-/**
- * Интеграция симулятора BB84 с панелью управления
- */
 
 let simulator = null;
 
-// Инициализация симулятора после загрузки страницы
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Ждем инициализации панели управления
+    
     setTimeout(() => {
         const simulationContainer = document.getElementById('simulation-content');
         if (simulationContainer) {
             simulator = new BB84Simulator(simulationContainer);
-            window.simulator = simulator; // Делаем доступным глобально
+            window.simulator = simulator; 
             
-            // Загружаем состояние из sessionStorage, если есть
+            
             const savedSessionData = sessionStorage.getItem('sessionData');
             if (savedSessionData) {
                 try {
                     const data = JSON.parse(savedSessionData);
                     simulator.importState(data);
-                    sessionStorage.removeItem('sessionData'); // Очищаем после загрузки
+                    sessionStorage.removeItem('sessionData'); 
                 } catch (e) {
                     console.error('Ошибка при загрузке сессии:', e);
                 }
             }
             
-            // Переходим на текущий шаг
+            
             simulator.goToStep(simulator.currentStep);
             
-            // Обновляем обработчики панели управления
+            
             updatePanelHandlers();
             
-            // Обновляем статус подключения после создания симулятора
+            
             if (typeof updateConnectionStatusDisplay === 'function') {
                 updateConnectionStatusDisplay();
             }
             
-            // Добавляем кнопку экспорта в меню
+            
             addExportButton();
         }
     }, 100);
 });
 
-// Очистка localStorage и sessionStorage при закрытии вкладки
+
 window.addEventListener('pagehide', () => {
-    // Очищаем сохраненное состояние симуляции
+    
     if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('bb84_simulation_state');
     }
     
-    // Очищаем sessionStorage (хотя он и так очищается автоматически при закрытии вкладки)
+    
     if (typeof sessionStorage !== 'undefined') {
         sessionStorage.removeItem('sessionData');
     }
 });
 
-// Обновление обработчиков панели управления
+
 function updatePanelHandlers() {
-    // Переопределяем обработчики для работы с симулятором
+    
     window.handleToggleRun = function() {
         if (simulator) {
             simulator.toggleAutoPlay();
@@ -76,7 +73,7 @@ function updatePanelHandlers() {
         }
     };
     
-    // Переопределяем handlePrevStep
+    
     window.handlePrevStep = function() {
         if (simulator) {
             simulator.prevStep();
@@ -85,7 +82,7 @@ function updatePanelHandlers() {
         }
     };
     
-    // Переопределяем handleNextStep
+    
     window.handleNextStep = function() {
         if (simulator) {
             simulator.nextStep();
@@ -94,7 +91,7 @@ function updatePanelHandlers() {
         }
     };
     
-    // Переопределяем handleReset
+    
     window.handleReset = function() {
         if (simulator) {
             simulator.reset();
@@ -105,7 +102,7 @@ function updatePanelHandlers() {
         }
     };
     
-    // Обновляем отображение статуса
+    
     const originalUpdateConnectionStatus = updateConnectionStatus;
     window.updateConnectionStatus = function() {
         const statusDiv = document.createElement('div');
@@ -116,36 +113,36 @@ function updatePanelHandlers() {
         
         const text = document.createElement('span');
         if (simulator) {
-            // Если симулятор создан, показываем текущий шаг
+            
             text.textContent = `Шаг: ${simulator.currentStep} / ${simulator.steps.length - 1}`;
         } else {
-            // Если симулятор еще не создан, проверяем сохраненное состояние
-            let currentStep = 0;
-            const totalSteps = 9; // Всего шагов 0-9
             
-            // Проверяем sessionStorage (для загруженной сессии из JSON)
+            let currentStep = 0;
+            const totalSteps = 9; 
+            
+            
             const savedSessionData = sessionStorage.getItem('sessionData');
             if (savedSessionData) {
                 try {
                     const data = JSON.parse(savedSessionData);
                     currentStep = data.currentStep || 0;
                 } catch (e) {
-                    // Игнорируем ошибки парсинга
+                    
                 }
             } else {
-                // Проверяем localStorage (для сохраненной сессии)
+                
                 const savedState = localStorage.getItem('bb84_simulation_state');
                 if (savedState) {
                     try {
                         const parsed = JSON.parse(savedState);
                         currentStep = parsed.currentStep || 0;
                     } catch (e) {
-                        // Игнорируем ошибки парсинга
+                        
                     }
                 }
             }
             
-            // Показываем шаг вместо "Не подключено"
+            
             text.textContent = `Шаг: ${currentStep} / ${totalSteps}`;
         }
         
@@ -156,9 +153,9 @@ function updatePanelHandlers() {
     };
 }
 
-// Добавление кнопки экспорта в меню
+
 function addExportButton() {
-    // Добавляем кнопку экспорта в развернутую панель
+    
     const controlButtonsContainer = elements.controlButtonsContainer;
     if (controlButtonsContainer) {
         const exportBtn = document.createElement('button');
@@ -170,7 +167,7 @@ function addExportButton() {
     }
 }
 
-// Обработчик экспорта
+
 function handleExport() {
     if (!simulator) {
         alert('Симулятор не инициализирован');
@@ -179,11 +176,11 @@ function handleExport() {
     
     const exportData = simulator.exportState();
     
-    // Используем функцию сохранения из index.js, если она доступна
+    
     if (window.saveSessionToFile) {
         window.saveSessionToFile(exportData, `bb84-session-${Date.now()}.json`);
     } else {
-        // Альтернативный способ сохранения
+        
         const jsonString = JSON.stringify(exportData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -199,9 +196,9 @@ function handleExport() {
     console.log('Экспортировано:', exportData);
 }
 
-// Функция показа уведомления об изменении конфигурации
+
 function showConfigChangeNotification(key, newValue, oldValue) {
-    // Удаляем предыдущее уведомление, если есть
+    
     const existingNotification = document.querySelector('.config-notification');
     if (existingNotification) {
         existingNotification.remove();
@@ -238,7 +235,7 @@ function showConfigChangeNotification(key, newValue, oldValue) {
     
     document.body.appendChild(notification);
     
-    // Автоматически скрываем через 5 секунд
+    
     setTimeout(() => {
         notification.style.animation = 'slideDown 0.3s ease-out reverse';
         setTimeout(() => {
@@ -247,12 +244,12 @@ function showConfigChangeNotification(key, newValue, oldValue) {
     }, 5000);
 }
 
-// Делаем функцию доступной глобально
+
 window.showConfigChangeNotification = showConfigChangeNotification;
 
-// Функция показа уведомления о прерывании протокола
+
 function showProtocolAbortedNotification(message) {
-    // Удаляем предыдущее уведомление, если есть
+    
     const existingNotification = document.querySelector('.protocol-aborted-notification');
     if (existingNotification) {
         existingNotification.remove();
@@ -276,7 +273,7 @@ function showProtocolAbortedNotification(message) {
     
     document.body.appendChild(notification);
     
-    // Автоматически скрываем через 10 секунд (дольше, чем обычное уведомление)
+    
     setTimeout(() => {
         notification.style.animation = 'slideDown 0.3s ease-out reverse';
         setTimeout(() => {
@@ -285,6 +282,6 @@ function showProtocolAbortedNotification(message) {
     }, 10000);
 }
 
-// Делаем функцию доступной глобально
+
 window.showProtocolAbortedNotification = showProtocolAbortedNotification;
 

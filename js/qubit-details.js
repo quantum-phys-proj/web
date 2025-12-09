@@ -1,6 +1,3 @@
-/**
- * Компонент для отображения деталей выбранного кубита или бита
- */
 class QubitDetails {
     constructor(container, options = {}) {
         this.container = container;
@@ -151,7 +148,7 @@ class QubitDetails {
             </div>
         `;
         
-        // Инициализируем сферу Блоха
+        
         const sphereContainer = this.container.querySelector('#bloch-sphere-container');
         if (sphereContainer) {
             const blochSphere = new BlochSphere(sphereContainer, {
@@ -159,7 +156,7 @@ class QubitDetails {
             });
         }
         
-        // Обработчики событий
+        
         const closeBtn = this.container.querySelector('.close-btn');
         if (closeBtn && this.onClose) {
             closeBtn.addEventListener('click', () => this.onClose());
