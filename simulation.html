@@ -12,18 +12,13 @@
 <body class="bg-gray-900 text-white">
     <div id="simulation-container" class="w-full min-h-screen p-4 md:p-8 pb-80">
         <div class="flex gap-6 max-w-[1600px] mx-auto">
-            <!-- Основной контент симуляции -->
             <div id="simulation-content-wrapper" class="flex-1 min-w-0 flex flex-col">
-                <!-- Заголовок шага (фиксированный хедер) -->
                 <div id="step-header-container" class="step-header-container mb-4 p-4 rounded-xl bg-blue-900/30 border border-blue-500/30" style="display: none;"></div>
                 <div id="simulation-content" class="flex-1 overflow-y-auto pr-2">
-                    <!-- Контент симуляции будет добавляться динамически -->
                 </div>
             </div>
             
-            <!-- Правая панель деталей -->
             <div id="details-sidebar" class="w-96 flex-shrink-0 space-y-4">
-                <!-- Панель деталей выбранного кубита -->
                 <div id="details-panel" class="details-panel space-y-4">
                     <div id="details-placeholder" class="rounded-2xl border border-dashed border-gray-700 bg-gray-900/40 text-gray-400 p-6 text-center">
                         Выберите кубит или бит, когда он появится в ленте.
@@ -33,13 +28,10 @@
         </div>
     </div>
     
-    <!-- Фиксированная нижняя панель с метриками и логом событий -->
     <div id="bottom-panel-container" class="bottom-panel-container fixed bottom-0 left-0 right-0 z-50"></div>
 
-    <!-- Плавающая панель -->
     <div id="floating-panel" class="floating-panel">
         <div id="panel-container" class="panel-container pointer-events-auto">
-            <!-- Заголовок (виден только в развернутом состоянии) -->
             <div id="panel-header" class="panel-header">
                 <div id="drag-handle" class="flex items-center justify-between cursor-move select-none">
                     <p class="text-sm font-semibold uppercase tracking-[0.3em] text-gray-300">Панель управления</p>
@@ -51,22 +43,15 @@
                 </div>
             </div>
 
-            <!-- Поля конфигурации (видимы только в развернутом состоянии) -->
             <div id="config-fields" class="config-fields-container grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <!-- Поля конфигурации будут добавлены через JS -->
             </div>
 
-            <!-- Кнопки управления (в развернутом состоянии) -->
             <div id="control-buttons" class="control-buttons-expanded">
-                <!-- Кнопки управления будут добавлены через JS -->
             </div>
 
-            <!-- Статус подключения (виден только в развернутом состоянии) -->
             <div id="connection-status" class="connection-status-container">
-                <!-- Статус подключения будет добавлен через JS -->
             </div>
 
-            <!-- Компактные кнопки (видимы только в свернутом состоянии) -->
             <div id="compact-buttons" class="compact-buttons-container">
                 <button id="prev-btn" class="icon-btn" type="button" title="Назад">
                     <svg viewBox="0 0 24 24" class="h-4 w-4" stroke="currentColor" fill="none" stroke-width="1.8">
